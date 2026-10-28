@@ -75,6 +75,7 @@ export function NewGameDialog({
     const sideLabelId = useId()
     const difficultyLabelId = useId()
     const timeControlLabelId = useId()
+    const timeControlHelpId = useId()
 
     const handleStart = () => {
         // Rolled here rather than where the game starts, so the dialog closing
@@ -138,7 +139,10 @@ export function NewGameDialog({
                     {/* Time control */}
                     <div className="dialog-section">
                         <p className="dialog-label" id={timeControlLabelId}>Time control</p>
-                        <div className="time-control-grid" role="group" aria-labelledby={timeControlLabelId}>
+                        <p className="dialog-note time-control-help" id={timeControlHelpId}>
+                            Minutes per side + seconds added after each move.
+                        </p>
+                        <div className="time-control-grid" role="group" aria-labelledby={timeControlLabelId} aria-describedby={timeControlHelpId}>
                             {TIME_CONTROL_PRESETS.map((preset) => (
                                 <button
                                     key={preset.id}

@@ -66,7 +66,7 @@ async function main() {
             assert.equal(await page.locator('.bottom .status').textContent(), 'analyzing')
             await page.getByRole('button', { name: 'Analyze', exact: true }).click()
             assert.equal(await page.locator('.pv-list article').count(), 0, 'console scores entered board analysis')
-            await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+            await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
               && document.querySelector('.pv-list article')?.textContent.includes('D12'))
             const events = await page.evaluate(() => window.__consoleEvents)
@@ -174,7 +174,7 @@ async function main() {
             await page.getByRole('button', { name: 'Load engine', exact: true }).focus()
             await page.screenshot({ path: path.join(output, `${name}-${width}-released.png`) })
             result.releasedWorkerCount = page.workers().length
-            await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+            await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
             await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready'
               && document.querySelector('.pv-list article')?.textContent.includes('D12'))
             result.reloadedWorkerCount = page.workers().length

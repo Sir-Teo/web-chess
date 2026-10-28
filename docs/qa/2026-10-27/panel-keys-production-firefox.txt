@@ -1,0 +1,31 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-DkM4CdPg.css              135.61 kB │ gzip:  25.22 kB
+dist/assets/NewGameDialog-CFAoGO_i.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-D2RbAa-v.js        16.10 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-DiWqXF8z.js            33.85 kB │ gzip:  11.35 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-B_Xbr3Vn.js               423.89 kB │ gzip: 137.02 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.54s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+Focused browser UI checks passed.

@@ -1,0 +1,128 @@
+[
+  {
+    "width": 1280,
+    "afterEnter": {
+      "commands": [],
+      "focused": "Hash",
+      "settings": {
+        "workspaceMode": "analysis",
+        "autoAnalyze": false,
+        "engineProfile": "lite-single-local",
+        "analysisTab": "engine-lab",
+        "analysisExperience": "pro",
+        "activePreset": "game-review",
+        "analyzeMode": "review",
+        "showAdvancedAnalyze": false,
+        "searchDepth": 16,
+        "quickMovetimeMs": 500,
+        "mateTarget": 4,
+        "multiPv": 2,
+        "hashMb": 64,
+        "showWdl": true,
+        "limitNodes": null,
+        "reviewMaxWorkers": 4,
+        "searchMovesInput": "",
+        "useClockLimits": false,
+        "whiteTimeMs": 120000,
+        "blackTimeMs": 120000,
+        "whiteIncMs": 1000,
+        "blackIncMs": 1000,
+        "movesToGo": null,
+        "expertModeEnabled": false,
+        "labCommandHistory": [],
+        "openingSource": "masters",
+        "openingSpeeds": [
+          "blitz",
+          "rapid",
+          "classical"
+        ],
+        "openingRatingPreset": "all",
+        "showBoardArrows": true,
+        "showTopMoveArrows": true,
+        "topMoveArrowCount": 3,
+        "continuousAnalysis": false,
+        "soundEnabled": true,
+        "blunderNudges": true,
+        "blindfold": false,
+        "autoFlipBoard": false,
+        "timeControlId": "unlimited",
+        "boardThemeId": "classic",
+        "theme": "dark",
+        "lastDifficulty": 4,
+        "lastSideChoice": "white",
+        "leftPanelWidth": 320,
+        "rightPanelWidth": 320
+      }
+    },
+    "afterTab": {
+      "commands": [
+        "setoption name Hash value 128",
+        "isready"
+      ],
+      "focused": "MultiPV"
+    }
+  },
+  {
+    "width": 375,
+    "afterEnter": {
+      "commands": [],
+      "focused": "Hash",
+      "settings": {
+        "workspaceMode": "analysis",
+        "autoAnalyze": false,
+        "engineProfile": "lite-single-local",
+        "analysisTab": "engine-lab",
+        "analysisExperience": "pro",
+        "activePreset": "game-review",
+        "analyzeMode": "review",
+        "showAdvancedAnalyze": false,
+        "searchDepth": 16,
+        "quickMovetimeMs": 500,
+        "mateTarget": 4,
+        "multiPv": 2,
+        "hashMb": 64,
+        "showWdl": true,
+        "limitNodes": null,
+        "reviewMaxWorkers": 4,
+        "searchMovesInput": "",
+        "useClockLimits": false,
+        "whiteTimeMs": 120000,
+        "blackTimeMs": 120000,
+        "whiteIncMs": 1000,
+        "blackIncMs": 1000,
+        "movesToGo": null,
+        "expertModeEnabled": false,
+        "labCommandHistory": [],
+        "openingSource": "masters",
+        "openingSpeeds": [
+          "blitz",
+          "rapid",
+          "classical"
+        ],
+        "openingRatingPreset": "all",
+        "showBoardArrows": true,
+        "showTopMoveArrows": true,
+        "topMoveArrowCount": 3,
+        "continuousAnalysis": false,
+        "soundEnabled": true,
+        "blunderNudges": true,
+        "blindfold": false,
+        "autoFlipBoard": false,
+        "timeControlId": "unlimited",
+        "boardThemeId": "classic",
+        "theme": "dark",
+        "lastDifficulty": 4,
+        "lastSideChoice": "white",
+        "leftPanelWidth": 320,
+        "rightPanelWidth": 320
+      }
+    },
+    "afterTab": {
+      "commands": [
+        "setoption name Hash value 128",
+        "isready"
+      ],
+      "focused": "MultiPV"
+    }
+  }
+]

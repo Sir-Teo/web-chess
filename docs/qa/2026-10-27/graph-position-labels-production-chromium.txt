@@ -1,0 +1,39 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-DkM4CdPg.css              135.61 kB │ gzip:  25.22 kB
+dist/assets/NewGameDialog-B9tTbGO_.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-BWUO8Y9m.js        16.08 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-BRNanEAA.js            33.85 kB │ gzip:  11.35 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DkYQL0yT.js               423.61 kB │ gzip: 136.96 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.53s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  graph move labels (1280×900, 1x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph move labels (375×812, 1x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph move labels (320×812, 2x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph move labels (844×390, 2x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph coverage (1280×900, 1x, dark): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph coverage (375×812, 1x, light): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph coverage (320×812, 2x, dark): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph coverage (844×390, 2x, light): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph readings: winrate (60, 40, 60, 40%) and WDL White (40, 20, 40, 20%) follow the board and agree with their selected positions
+  graph gaps: an unscored new branch keeps its graphs without borrowing the root’s readings
+  move times: ten timed moves drawn, longest think 47s
+  review offer: one press from Analyze reviewed all ten moves
+Focused browser UI checks passed.

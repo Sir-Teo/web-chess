@@ -1,0 +1,11 @@
+{"browser":"chromium","port":"4324","commit":"84b877f8a10f4d3513554f408d3c56ba0a1f97a0","build":"Vite development source","dirty":true,"checks":["checkOpeningIntelFocus","checkReadingSpace"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkOpeningIntelFocus
+  opening focus (1280×812, 1x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  opening focus (375×812, 1x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  opening focus (320×812, 2x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  opening focus (844×390, 2x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+checkReadingSpace
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+Development palette checks passed.

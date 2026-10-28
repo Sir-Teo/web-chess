@@ -16,7 +16,7 @@ describe('graph label helpers', () => {
   it('keeps start positions and sparse graph positions readable', () => {
     expect(formatGraphPositionLabel({ index: 0, label: 'Start' }, 0)).toBe('Start position')
     expect(formatGraphAxisLabel({ index: 0, label: 'Start' })).toBe('Start')
-    expect(formatGraphPositionLabel(undefined, 3)).toBe('After move 3')
+    expect(formatGraphPositionLabel(undefined, 3)).toBe('After half-move 3')
   })
 
   it('leaves a label with no move number alone rather than emptying the tick', () => {
@@ -33,9 +33,11 @@ describe('what the slider announces', () => {
       .toBe('After 12. Nf3, White 40%, draw 50%, Black 10%')
   })
 
-  it('names the position alone where nothing has been read', () => {
-    expect(describeWinratePosition(undefined, 7)).toBe('After move 7')
-    expect(describeWdlPosition(undefined, 0)).toBe('Start position')
+  it('says when the selected position has no reading', () => {
+    expect(describeWinratePosition(undefined, 7)).toBe('After half-move 7, no reading')
+    expect(describeWdlPosition(undefined, 0)).toBe('Start position, no reading')
+    expect(describeWinratePosition(undefined, 6, '45. Bb5')).toBe('After 45. Bb5, no reading')
+    expect(describeWdlPosition(undefined, 7, '45... a6')).toBe('After 45... a6, no reading')
   })
 })
 
@@ -50,7 +52,9 @@ describe('the readout under the pointer', () => {
   })
 
   it('still names the position over a ply the series skipped', () => {
-    expect(formatWinrateReadout(undefined, 7)).toBe('Move 7 · no reading')
+    expect(formatWinrateReadout(undefined, 7)).toBe('Half-move 7 · no reading')
     expect(formatWdlReadout(undefined, 0)).toBe('Start · no reading')
+    expect(formatWinrateReadout(undefined, 6, '45. Bb5')).toBe('45. Bb5 · no reading')
+    expect(formatWdlReadout(undefined, 7, '45... a6')).toBe('45... a6 · no reading')
   })
 })

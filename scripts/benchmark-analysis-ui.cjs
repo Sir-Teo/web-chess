@@ -203,7 +203,7 @@ async function main() {
         await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
         await command.fill('go infinite')
         await command.press('Enter')
-      } else await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      } else await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__benchmarkWorkers.some(worker => worker.searching && worker.multiPv === 5))
       if (consoleWorkload) {
         await page.evaluate(() => {

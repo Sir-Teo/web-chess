@@ -1,0 +1,25 @@
+{"browser":"webkit","port":"4327","commit":"e13133e3f01eb73b97accb246323b4ce96db1494","build":"/tmp/web-chess-review-options-production","checks":["checkReviewActionNames","checkTheReviewOfferFollowsTheGame","checkRevealTimersRespectDialogs","checkRevealRetriesYieldToInteraction","checkAPaletteTabCommandGoesThere","checkCommandMoveEntry","checkDialogFocusHandoff"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkReviewActionNames
+  review actions (1280×900, 1x, pro, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (375×812, 1x, beginner, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (320×812, 2x, pro, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (844×390, 2x, beginner, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+checkTheReviewOfferFollowsTheGame
+  review offer: spent on the reviewed line, offered again for the game played from that position (Ba4)
+checkRevealTimersRespectDialogs
+  reveal timers: dialogs retain focused drafts through delayed board/analysis callbacks; closing keeps opener focus
+checkRevealRetriesYieldToInteraction
+  reveal interaction: a held click stays in place and completes its review; focus alone preserves visible Load through pending panel retries at 200% text without waking the engine
+checkAPaletteTabCommandGoesThere
+  palette tabs: Engine Lab from Play mode lands on ["Analyze:false","Review:false","Engine Lab:true"]
+checkCommandMoveEntry
+  command move entry (1280px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (320px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+checkDialogFocusHandoff
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to a newer preview and modal
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to a newer preview and modal
+Production review/option checks passed.

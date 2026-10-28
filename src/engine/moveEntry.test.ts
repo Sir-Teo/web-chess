@@ -102,6 +102,28 @@ describe('typed move entry', () => {
   })
 })
 
+describe('bishop rank notation and b-file coordinates', () => {
+  const white = '8/7k/8/8/8/2B5/8/1NB4K w - - 0 1'
+  const black = '1nb4k/8/2b5/8/8/8/7K/8 b - - 0 1'
+
+  it.each([
+    [white, 'B1d2', 'c1', 'd2'],
+    [black, 'B8d7', 'c8', 'd7'],
+  ])('plays the named bishop rather than the piece on the b-file: %s %s', (fen, input, from, to) => {
+    expect(parseMoveEntry(fen, input)).toMatchObject({ from, to, piece: 'b', san: input })
+  })
+
+  it('refuses illegal bishop notation even when its coordinates would move a knight', () => {
+    const fen = '8/7k/8/8/8/2B5/8/1N5K w - - 0 1'
+    expect(parseMoveEntry(fen, 'B1d2')).toBeNull()
+    expect(parseMoveEntry(fen, 'b1d2')).toMatchObject({ from: 'b1', to: 'd2', piece: 'n' })
+  })
+
+  it.each(['b1d2', 'B1D2', 'B1-d2'])('retains explicit coordinate notation: %s', input => {
+    expect(parseMoveEntry(white, input)).toMatchObject({ from: 'b1', to: 'd2', piece: 'n', san: 'Nd2' })
+  })
+})
+
 describe('an ambiguous move', () => {
   // Knights on b1 and f3, d2 empty: both can go there.
   const twoKnights = 'rnbqkbnr/ppp1pppp/8/3p4/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 2 2'

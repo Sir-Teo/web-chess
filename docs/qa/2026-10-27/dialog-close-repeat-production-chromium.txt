@@ -1,0 +1,36 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 199 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-DID8ivA7.css              135.68 kB │ gzip:  25.23 kB
+dist/assets/NewGameDialog-CFfIsyKX.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-Dq6xIaaG.js        16.10 kB │ gzip:   5.47 kB
+dist/assets/PgnDialog-88c0G-mx.js            35.67 kB │ gzip:  11.94 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Mx8h99f7.js               425.05 kB │ gzip: 137.18 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.64s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  dialog close repeats (1280px, 1x, dark): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog close repeats (375px, 1x, light): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog close repeats (320px, 2x, dark): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  command reopen (1280px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (1280px): held Enter opens Commands without running a command; held arrows navigate, fresh Enter and Tab activation work; native Shift+Down and modified/composing keys preserve search editing and command selection
+  command reopen (375px): query and selection reset before the first key, across three reopen cycles
+  command keyboard (375px): held Enter opens Commands without running a command; held arrows navigate, fresh Enter and Tab activation work; native Shift+Down and modified/composing keys preserve search editing and command selection
+Focused browser UI checks passed.

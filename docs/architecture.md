@@ -440,6 +440,13 @@ the axis, since one bad value there poisons the whole scale rather than one
 point. This repo is safe from the scale half already, because the skip happens
 at the source and the series only ever holds finite numbers.
 
+Partial White expected score and WDL charts now show how many positions have
+readings, including the starting position. When readings span an unevaluated
+position, the caption explains that lines connect across gaps. The graph's
+accessible description includes that context, and its cursor explicitly says
+"no reading" at an unevaluated position. The caption disappears when coverage
+is complete; the interpolation and area geometry remain the same.
+
 ## A finished position has no engine reading
 
 Stockfish answers a checkmated position with `info depth 0 score mate 0` and

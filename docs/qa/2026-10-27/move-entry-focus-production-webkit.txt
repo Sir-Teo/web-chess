@@ -1,0 +1,47 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-XhxvA__t.css              135.49 kB │ gzip:  25.19 kB
+dist/assets/NewGameDialog-BABFu8ao.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-6esYcdmJ.js        16.08 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-BWQZ47ZK.js            33.85 kB │ gzip:  11.35 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-C0bi7riN.js               422.46 kB │ gzip: 136.49 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.52s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  contrast (Dark / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Dark): click/tap/button Enter/Space return to input; rejected draft stays focused; SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction and navigation OK
+  contrast (Dark / analysis guide / 375px): 138 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Dark / expanded move entry / 375px): 161 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Dark): click/tap/button Enter/Space return to input; rejected draft stays focused; SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction and navigation OK
+  contrast (Light / analysis guide / 1280px): 140 measured, 0 under the floor (123 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 1280px): 163 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  typed moves (1280px, Light): click/tap/button Enter/Space return to input; rejected draft stays focused; SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction and navigation OK
+  contrast (Light / analysis guide / 375px): 138 measured, 0 under the floor (119 on a gradient, measured against its worst stop)
+  contrast (Light / expanded move entry / 375px): 161 measured, 0 under the floor (142 on a gradient, measured against its worst stop)
+  typed moves (375px, Light): click/tap/button Enter/Space return to input; rejected draft stays focused; SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction and navigation OK
+  typed drill entry (1280×900, 1x): input Enter counts once while held; composing/229 Enter stays with text input; rejected draft and focus remain
+  drill hidden hints (1280×900, 1x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  typed drill entry (375×812, 1x): Play move Enter counts once while held; composing/229 Enter stays with text input; rejected draft and focus remain
+  drill hidden hints (375×812, 1x, light): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  typed drill entry (320×812, 2x): Play move Enter counts once while held; composing/229 Enter stays with text input; rejected draft and focus remain
+  drill hidden hints (320×812, 2x, dark): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+  typed drill entry (844×390, 2x): Play move Enter counts once while held; composing/229 Enter stays with text input; rejected draft and focus remain
+  drill hidden hints (844×390, 2x, light): known best/reply titles disappear in Coach/Pro and through one miss, advance and restart; two misses/exit restore titles; native hover and all 64 useful square labels retain no answer coordinates; one persistent board status announces both misses and truthful completion; the readable card stays non-live and the revealed answer reaches the board
+Focused browser UI checks passed.

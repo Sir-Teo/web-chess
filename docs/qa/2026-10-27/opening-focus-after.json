@@ -1,0 +1,62 @@
+[
+  {
+    "width": 1280,
+    "height": 812,
+    "scale": 1,
+    "focus": "Lichess API token",
+    "token": {
+      "top": 347.953125,
+      "bottom": 379.953125,
+      "left": 984.703125,
+      "right": 1256.296875
+    },
+    "hit": true,
+    "headingTop": 284.046875,
+    "mainTop": 70.78125
+  },
+  {
+    "width": 375,
+    "height": 812,
+    "scale": 1,
+    "focus": "Lichess API token",
+    "token": {
+      "top": 232.359375,
+      "bottom": 276.359375,
+      "left": 32.703125,
+      "right": 342.296875
+    },
+    "hit": true,
+    "headingTop": 152.375,
+    "mainTop": 129.734375
+  },
+  {
+    "width": 320,
+    "height": 812,
+    "scale": 2,
+    "focus": "Lichess API token",
+    "token": {
+      "top": 549.84375,
+      "bottom": 617.625,
+      "left": 63.421875,
+      "right": 256.578125
+    },
+    "hit": true,
+    "headingTop": 270.078125,
+    "mainTop": 284.390625
+  },
+  {
+    "width": 844,
+    "height": 390,
+    "scale": 2,
+    "focus": "Lichess API token",
+    "token": {
+      "top": 313.78125,
+      "bottom": 381.5625,
+      "left": 453.421875,
+      "right": 553.578125
+    },
+    "hit": true,
+    "headingTop": -9.171875,
+    "mainTop": -7.84375
+  }
+]

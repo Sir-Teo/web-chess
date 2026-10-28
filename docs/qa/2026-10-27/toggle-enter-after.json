@@ -1,0 +1,10 @@
+{
+  "browser": "chromium",
+  "first": "true",
+  "repeated": "true",
+  "focused": true,
+  "names": [
+    "Alpha",
+    "Beta"
+  ]
+}

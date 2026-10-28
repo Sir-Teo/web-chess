@@ -1,0 +1,8 @@
+{"browser":"firefox","port":"4324","commit":"0c390260d847c181379d69f0533f661c67f88f67","build":"Vite development source","dirty":true,"checks":["checkArchivePreferences"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkArchivePreferences
+  archive preferences (1280px, 1x, dark, malformed): separate provider drafts; successful canonical handles/count; truthful storage feedback; canceled late/empty/failed fetches preserve choices and PGN; request errors belong to Fetch and clear on edit/retry; reopen/reload restore without requests
+  archive preferences (375px, 1x, light, empty): separate provider drafts; successful canonical handles/count; truthful storage feedback; canceled late/empty/failed fetches preserve choices and PGN; request errors belong to Fetch and clear on edit/retry; reopen/reload restore without requests
+  archive preferences (320px, 2x, dark, saved): separate provider drafts; successful canonical handles/count; truthful storage feedback; canceled late/empty/failed fetches preserve choices and PGN; request errors belong to Fetch and clear on edit/retry; reopen/reload restore without requests
+  archive preferences (375px, 2x, light, blocked storage): separate provider drafts; successful canonical handles/count; truthful storage feedback; canceled late/empty/failed fetches preserve choices and PGN; request errors belong to Fetch and clear on edit/retry; reopen/reload restore without requests
+Development focused checks passed.

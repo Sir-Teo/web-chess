@@ -1,0 +1,7 @@
+{"browser":"chromium","port":"4324","commit":"0528cd934eafc14e9dd472780355dcd35315666f","build":"Vite development source","dirty":true,"checks":["checkBookMoveAnalysisActions"]}
+checkBookMoveAnalysisActions
+  book analysis (1280x900, 1x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+  book analysis (375x812, 1x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+  book analysis (320x812, 2x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+  book analysis (844x390, 2x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+Development focused checks passed.

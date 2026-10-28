@@ -1,0 +1,16 @@
+{
+  "browser": "chromium",
+  "build": "Vite development source",
+  "fixture": "Opening Explorer only; native Stockfish worker",
+  "engines": [
+    "id name Stockfish 18 Lite WASM"
+  ],
+  "commands": [
+    "go depth 6 searchmoves e2e4"
+  ],
+  "completed": [
+    "bestmove e2e4 ponder d7d5"
+  ],
+  "notice": "Searching only e4. Candidate results do not change the position score or game review.",
+  "pawnStillOnE2": true
+}

@@ -1,0 +1,61 @@
+{
+  "browser": "chromium",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "afterSave": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      },
+      "afterExport": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      },
+      "afterImport": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      },
+      "afterFailedExport": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      }
+    },
+    {
+      "width": 320,
+      "scale": 2,
+      "afterSave": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      },
+      "afterExport": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      },
+      "afterImport": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      },
+      "afterFailedExport": {
+        "tag": "BODY",
+        "label": null,
+        "text": "Skip to boardSkip to analysisWeb Chess New game Flip PGN Library CommandsPlayAnalysisHuman vs HumanH",
+        "id": ""
+      }
+    }
+  ]
+}

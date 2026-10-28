@@ -1,0 +1,9 @@
+{"browser":"chromium","port":"4324","commit":"3eb8cb7cba2fa1b6d0b14fc68f008374efeb2ced","build":"Vite development source","dirty":true,"checks":["checkPgnExportPreferences"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkPgnExportPreferences
+  PGN export preferences (1280×900, 1x, dark, defaults): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (320×812, 2x, light, stored validation): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (844×390, 2x, dark, stored validation): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (375×812, 1x, light, stored validation): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (375×812, 2x, light, blocked storage): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+Development focused checks passed.

@@ -1,0 +1,27 @@
+{
+  "main": {
+    "top": 284.390625,
+    "bottom": 519.640625,
+    "height": 235.25,
+    "width": 320
+  },
+  "board": {
+    "top": 327.359375,
+    "bottom": 519.359375,
+    "height": 192,
+    "width": 192
+  },
+  "top": {
+    "top": 0,
+    "bottom": 284.390625,
+    "height": 284.390625,
+    "width": 320
+  },
+  "bottom": {
+    "top": 519.640625,
+    "bottom": 812,
+    "height": 292.359375,
+    "width": 320
+  },
+  "focus": "chessboard-stage"
+}

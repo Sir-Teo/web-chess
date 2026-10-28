@@ -1,0 +1,32 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+dist/assets/index-DQ3HyB4k.css              135.39 kB │ gzip:  25.16 kB
+dist/assets/NewGameDialog-CaND0AuB.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-Cqn95NNk.js        15.49 kB │ gzip:   5.30 kB
+dist/assets/PgnDialog-Ds66CAwc.js            33.34 kB │ gzip:  11.13 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Ca7_1dhr.js               420.32 kB │ gzip: 135.84 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.73s
+  hint: three presses asked once, drew an arrow, and did not outlive the position
+  hint copy: "Try e4 — drawn on the board in green." with arrows on, "Try e4 — board arrows are off, so nothing is drawn." with them off
+  hint shortcut (1280×900, 1x, dark): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (375×812, 1x, light): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (320×812, 2x, light): first press answers once; held H retains the hint without searching; release and press asks again without moving
+  hint shortcut (844×390, 2x, dark): first press answers once; held H retains the hint without searching; release and press asks again without moving
+Focused browser UI checks passed.

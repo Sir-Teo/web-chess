@@ -1,0 +1,31 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+dist/assets/index-DQ3HyB4k.css              135.39 kB │ gzip:  25.16 kB
+dist/assets/NewGameDialog-DabOhKpv.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-DcITnzHZ.js        15.33 kB │ gzip:   5.29 kB
+dist/assets/PgnDialog-Bdq9IWkE.js            33.34 kB │ gzip:  11.13 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-BZbXAMbz.js               418.63 kB │ gzip: 135.33 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.32s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  library sort (1280px, 1x, dark): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 44px target, 44px toolbar; chosen sort and records survive close/reload; actual game load
+  library sort (375px, 1x, light): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 44px target, 44px toolbar; chosen sort and records survive close/reload; actual game load
+  library sort (375px, 2x, dark): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 57.59999084472656px target, 139.1999969482422px toolbar; chosen sort and records survive close/reload; actual game load
+  library sort (320px, 2x, light): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, 57.600006103515625px target, 139.20001220703125px toolbar; chosen sort and records survive close/reload; actual game load
+Focused browser UI checks passed.

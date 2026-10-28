@@ -316,12 +316,6 @@
     .fen-castling-grid {
         grid-template-columns: minmax(0, 1fr);
     }
-
-    /* Even the whole column is short of "White kingside" on one line;
-       "White / kingside" on two says all of it. */
-    .fen-castling-grid .fen-castling-option small {
-        white-space: normal;
-    }
 }
 
 .fen-castling-option {
@@ -344,13 +338,12 @@
 
 .fen-castling-option small {
     min-width: 0;
-    overflow: hidden;
     color: var(--text-tertiary);
     font-size: 0.62rem;
     font-weight: 600;
     line-height: 1.15;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .fen-castling-option.disabled span,
@@ -420,6 +413,12 @@
 }
 
 .fen-setup-raw-help {
+    overflow-wrap: anywhere;
+}
+
+.fen-counter-help {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
     overflow-wrap: anywhere;
 }
 
@@ -1014,6 +1013,11 @@
     gap: 0.4rem;
 }
 
+.time-control-help {
+    margin: 0 0 0.65rem;
+    color: var(--text-secondary);
+}
+
 .time-control-card {
     display: flex;
     flex-direction: column;
@@ -1219,6 +1223,11 @@
     font-size: 0.68rem;
     line-height: 1.4;
     color: var(--text-tertiary);
+}
+
+.archive-preferences-note {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
 }
 
 .archive-paste-label {

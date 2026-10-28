@@ -1,0 +1,33 @@
+{
+  "graphs": [
+    {
+      "name": "White expected score graph",
+      "max": "8",
+      "selected": "8",
+      "describedBy": null,
+      "samples": 5,
+      "coverage": null,
+      "paths": [
+        "M 52.00 60.00 L 75.38 82.00 L 145.50 60.00 L 168.88 82.00 L 239.00 60.00"
+      ]
+    },
+    {
+      "name": "WDL progression graph",
+      "max": "8",
+      "selected": "8",
+      "describedBy": null,
+      "samples": 0,
+      "coverage": null,
+      "paths": [
+        "M 52.00 82.00 L 75.38 104.00 L 145.50 82.00 L 168.88 104.00 L 239.00 82.00",
+        "M 52.00 82.00 L 75.38 82.00 L 145.50 82.00 L 168.88 82.00 L 239.00 82.00",
+        "M 52.00 104.00 L 75.38 82.00 L 145.50 104.00 L 168.88 82.00 L 239.00 104.00"
+      ]
+    }
+  ],
+  "browserChord": {
+    "key": "Alt+ArrowLeft",
+    "prevented": true,
+    "selected": "7"
+  }
+}

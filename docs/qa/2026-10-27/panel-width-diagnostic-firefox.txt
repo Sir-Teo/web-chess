@@ -1,0 +1,13 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change
+initial-width {"svg":259,"panel":320.066650390625,"aria":"320","available":259}
+reopened-width {"initialWidth":259,"svg":259,"panel":320,"aria":"320","available":259}
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct
+  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change
+initial-width {"svg":259,"panel":320,"aria":"320","available":259}
+reopened-width {"initialWidth":259,"svg":259,"panel":320,"aria":"320","available":259}
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct
+  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change
+initial-width {"svg":259,"panel":320.01666259765625,"aria":"320","available":259}
+reopened-width {"initialWidth":259,"svg":259,"panel":320,"aria":"320","available":259}
+  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct

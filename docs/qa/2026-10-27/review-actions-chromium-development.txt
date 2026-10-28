@@ -1,0 +1,5 @@
+chromium
+  review actions (1280×900, 1x, pro, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (375×812, 1x, beginner, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (320×812, 2x, pro, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (844×390, 2x, beginner, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board

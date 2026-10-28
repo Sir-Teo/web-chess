@@ -1,0 +1,56 @@
+[
+  {
+    "workspaceMode": "play",
+    "command": "tab-analyze",
+    "selected": "Analyze",
+    "inert": true,
+    "hidden": "true",
+    "width": 0,
+    "preference": 320
+  },
+  {
+    "workspaceMode": "play",
+    "command": "tab-review",
+    "selected": "Review",
+    "inert": true,
+    "hidden": "true",
+    "width": 0,
+    "preference": 320
+  },
+  {
+    "workspaceMode": "play",
+    "command": "tab-lab",
+    "selected": "Engine Lab",
+    "inert": true,
+    "hidden": "true",
+    "width": 0,
+    "preference": 320
+  },
+  {
+    "workspaceMode": "analysis",
+    "command": "tab-analyze",
+    "selected": "Analyze",
+    "inert": true,
+    "hidden": "true",
+    "width": 0,
+    "preference": 320
+  },
+  {
+    "workspaceMode": "analysis",
+    "command": "tab-review",
+    "selected": "Review",
+    "inert": true,
+    "hidden": "true",
+    "width": 0,
+    "preference": 320
+  },
+  {
+    "workspaceMode": "analysis",
+    "command": "tab-lab",
+    "selected": "Engine Lab",
+    "inert": true,
+    "hidden": "true",
+    "width": 0,
+    "preference": 320
+  }
+]

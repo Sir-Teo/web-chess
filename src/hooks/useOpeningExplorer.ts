@@ -90,6 +90,8 @@ export function useOpeningExplorer(args: UseOpeningExplorerArgs): OpeningExplore
     }
     if (!hasAuth) return
 
+    // Credentials or query inputs changed: show the new request as loading.
+    setErrorByKey(previous => withoutRecordEntry(previous, requestKey))
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
       void fetchOpeningExplorer(

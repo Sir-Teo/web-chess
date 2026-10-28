@@ -1,0 +1,8 @@
+{"browser":"chromium","port":"4324","commit":"d839e74d60a42c3a1ede8b2594efba814f82ed5f","build":"Vite development source","dirty":true,"checks":["checkDialogFocusHandoff"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkDialogFocusHandoff
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  dialog focus handoff (320px, 2x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+Development focused checks passed.

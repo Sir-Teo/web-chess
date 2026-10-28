@@ -1,0 +1,23 @@
+{
+  "selectedMove": "Bb5",
+  "readings": [
+    {
+      "name": "White expected score move navigator",
+      "index": "6",
+      "spoken": "After move 6, no reading",
+      "visible": "Move 6 \u00b7 no reading"
+    },
+    {
+      "name": "WDL trend move navigator",
+      "index": "6",
+      "spoken": "After move 6, no reading",
+      "visible": "Move 6 \u00b7 no reading"
+    },
+    {
+      "name": "Move times navigator",
+      "index": "6",
+      "spoken": "After move 6",
+      "visible": "Move 6 \u00b7 no clock"
+    }
+  ]
+}

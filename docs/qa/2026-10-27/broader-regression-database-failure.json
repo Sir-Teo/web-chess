@@ -1,0 +1,17 @@
+{
+  "status": "failed",
+  "driver_pid": 307968,
+  "commit": "acdf4bcf10a25490faf1e678e9875970d6d6d242",
+  "source_dirty": false,
+  "dist_index_sha256": "57685c3ef6d44642828bdfed6264cc67042488ee1d383ae51b78d75055a9c367",
+  "started_utc": "2026-10-28T17:08:33Z",
+  "first_run": "/tmp/web-chess-complete-chromium-2026-10-28.log",
+  "first_run_end": "externally SIGKILLed; cgroup recorded zero OOM events; no assertion failure emitted",
+  "restart_from": "checkShortDesktopWindow",
+  "node_pid": 307975,
+  "exit_code": 1,
+  "elapsed_seconds": 415.17,
+  "finished_utc": "2026-10-28T17:15:28Z",
+  "final_source_dirty": false,
+  "final_dist_index_sha256": "57685c3ef6d44642828bdfed6264cc67042488ee1d383ae51b78d75055a9c367"
+}

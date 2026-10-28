@@ -84,6 +84,44 @@ describe('positions this should not throw on', () => {
   })
 })
 
+describe('captures from the actual line', () => {
+  function afterLine(root: string, moves: string[]) {
+    const game = new Chess(root)
+    for (const move of moves) game.move(move)
+    return materialBalance(root, game.fen(), game.history({ verbose: true }))
+  }
+
+  it('does not call a quietly promoted White pawn captured', () => {
+    expect(afterLine('8/P6k/8/8/8/8/7K/8 w - - 0 1', ['a8=Q']))
+      .toEqual({ delta: 9, capturedByWhite: [], capturedByBlack: [] })
+  })
+
+  it('does not call a quietly underpromoted Black pawn captured', () => {
+    expect(afterLine('7k/8/8/8/8/8/p6K/8 b - - 0 1', ['a1=N']))
+      .toEqual({ delta: -3, capturedByWhite: [], capturedByBlack: [] })
+  })
+
+  it('records a promotion capture and the later capture of the promoted piece', () => {
+    const root = '1rk5/P7/8/8/8/8/7P/7K w - - 0 1'
+    expect(afterLine(root, ['axb8=Q+']))
+      .toEqual({ delta: 10, capturedByWhite: ['r'], capturedByBlack: [] })
+    expect(afterLine(root, ['axb8=Q+', 'Kxb8']))
+      .toEqual({ delta: 1, capturedByWhite: ['r'], capturedByBlack: ['q'] })
+  })
+
+  it('records en passant as an opposing pawn capture', () => {
+    expect(afterLine('7k/8/8/3pP3/8/8/8/7K w - d6 0 1', ['exd6']))
+      .toEqual({ delta: 1, capturedByWhite: ['p'], capturedByBlack: [] })
+  })
+
+  it('retains ordinary trades and starts a custom position with no captures', () => {
+    expect(afterLine(START, ['e4', 'd5', 'exd5', 'Qxd5']))
+      .toEqual({ delta: 0, capturedByWhite: ['p'], capturedByBlack: ['p'] })
+    expect(afterLine('7k/8/8/8/8/8/7P/7K w - - 0 1', []))
+      .toEqual({ delta: 1, capturedByWhite: [], capturedByBlack: [] })
+  })
+})
+
 describe('the label the strip shows', () => {
   it('shows a plus for the side that is ahead and nothing for the other', () => {
     expect(materialAdvantageLabel(3, 'w')).toBe('+3')

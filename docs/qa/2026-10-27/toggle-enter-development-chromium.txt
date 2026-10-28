@@ -1,0 +1,14 @@
+{"browser":"chromium","port":"4324","commit":"7089503aaf9817fc6281c378dc7c0aacd04cb370","build":"Vite development source","dirty":true,"checks":["checkLibraryStarredFilter","checkTheOpeningFiltersReachTheRequest","checkAutoplayWalksTheLine","checkHeldToggleShortcuts"]}
+checkLibraryStarredFilter
+  starred library (1280px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (901px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (375px, 1x, dark): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+  starred library (320px, 2x, light): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload
+checkTheOpeningFiltersReachTheRequest
+  opening filters: Lichess asked with blitz,bullet,classical,rapid and ratings 1600,1800,2000,2200; 1 Masters request(s) carried neither
+checkAutoplayWalksTheLine
+  autoplay: walked to the end of the line and stopped
+checkHeldToggleShortcuts
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat
+Development focused checks passed.

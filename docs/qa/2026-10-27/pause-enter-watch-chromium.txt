@@ -1,0 +1,8 @@
+{"browser":"chromium","port":"4324","commit":"9565f02032d375eefa2a6e8e3ed47ddbb199def2","build":"Vite development source","dirty":true,"checks":["checkWatchTabTitle"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkWatchTabTitle
+  watch title (1280×900, 1x, slow-boot): loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (1280×900, 1x, silent-all): failed startup reports unavailable without inventing a move
+  watch title (320×480, 2x, slow-boot): loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (320×480, 2x, silent-all): failed startup reports unavailable without inventing a move
+Development focused checks passed.

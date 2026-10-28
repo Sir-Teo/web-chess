@@ -1,0 +1,21 @@
+[
+  {
+    "service": "opening",
+    "label": "Analyze only e4: 150 games, 100.0% of this position",
+    "searchesBefore": 0,
+    "searchesAfter": [
+      "go depth 16 searchmoves e2e4"
+    ],
+    "visibleSearchNotice": 1
+  },
+  {
+    "service": "tablebase",
+    "label": "Analyze only axb8=Q+: Win · DTZ 5. UCI a7b8q",
+    "searchesBefore": 1,
+    "searchesAfter": [
+      "go movetime 70",
+      "go depth 16 searchmoves a7b8q"
+    ],
+    "visibleSearchNotice": 1
+  }
+]

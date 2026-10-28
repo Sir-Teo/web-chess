@@ -264,7 +264,7 @@ async function main() {
             }
           })
           await page.goto(base, { waitUntil: 'domcontentloaded' })
-          await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+          await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
           await page.waitForFunction(() => window.__smokeBestmoves >= 1)
           // The Worker event precedes React's committed position snapshot.
           // Capture the completed depth, not a still-painted shallower score.
@@ -280,7 +280,7 @@ async function main() {
           await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
           await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
           await page.keyboard.press('Escape')
-          await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+          await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
           await page.waitForFunction(() => window.__smokeBestmoves >= 2)
           assert.equal(await position.innerText(), before)
           assert.equal(await page.getByTestId('candidate-search-notice').isVisible(), true)
@@ -469,7 +469,7 @@ async function main() {
             bestmoves: window.__smokeBestmoves,
             review: document.querySelector('[data-testid="review-run-summary"]')?.textContent,
             reviewControls: [...document.querySelectorAll('button')]
-              .filter(button => /^(Fresh review|Review Game|Reviewing)/.test(button.textContent.trim()))
+              .filter(button => /^(Fresh review|Review Game|Stop review)/.test(button.textContent.trim()))
               .map(button => ({ text: button.textContent.trim(), disabled: button.disabled })),
             notices: [...document.querySelectorAll('[role="alert"], [role="status"]')]
               .map(node => node.textContent.trim().slice(0, 250)).filter(Boolean).slice(-8),

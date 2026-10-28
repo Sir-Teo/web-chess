@@ -1,0 +1,87 @@
+{
+  "browser": "chromium",
+  "checks": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "openers": [
+        {
+          "label": "Start new game",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Open PGN and FEN dialog",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Open saved games library",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Open the Commands palette",
+          "popup": null,
+          "shortcut": "Meta+K Control+K"
+        },
+        {
+          "label": "Human vs Human",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Human vs AI",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "AI vs AI",
+          "popup": null,
+          "shortcut": null
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "openers": [
+        {
+          "label": "Start new game",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Open PGN and FEN dialog",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Open saved games library",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Open the Commands palette",
+          "popup": null,
+          "shortcut": "Meta+K Control+K"
+        },
+        {
+          "label": "Human vs Human",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "Human vs AI",
+          "popup": null,
+          "shortcut": null
+        },
+        {
+          "label": "AI vs AI",
+          "popup": null,
+          "shortcut": null
+        }
+      ]
+    }
+  ]
+}

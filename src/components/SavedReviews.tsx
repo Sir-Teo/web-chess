@@ -90,6 +90,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     target?.focus()
   }, [working])
   const backupInput = useRef<HTMLInputElement>(null)
+  const backupImportTrigger = useRef<HTMLButtonElement>(null)
   const openOwner = useRef<object | null>(null)
   const currentLineKey = reviewLineKey(line)
   const currentRootId = line[0]?.id
@@ -130,9 +131,12 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     setSelectedId(previous => !matches.length || matches.some(run => run.id === previous) ? previous : matches[0].id)
   }
 
-  async function save() {
+  async function save(trigger: HTMLButtonElement) {
     if (!report || busy || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    const focusRequest: ActionFocus = { trigger, destination: 'trigger' }
+    actionFocus.current = focusRequest
     setNotice('Saving review…')
     try {
       const saved = createSavedReview(line, report, headers, qualities, undefined, openingName)
@@ -141,6 +145,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
       setNotice('Review saved on this device. Export a review backup to keep a complete separate copy.')
       await refresh(saved.id)
       if (details.current) details.current.open = true
+      focusRequest.destination = 'remaining'
     } catch (error) { setNotice(failure(error, 'save this review')) }
     finally { endWork() }
   }
@@ -214,9 +219,11 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
     finally { endWork() }
   }
 
-  async function backup() {
+  async function backup(trigger: HTMLButtonElement) {
     if (busy || workingRef.current) return
     if (!beginWork()) return
+    trigger.focus({ preventScroll: true })
+    actionFocus.current = { trigger, destination: 'trigger' }
     setNotice('Preparing review backup…')
     try {
       const { text, count } = await exportReviewBackup()
@@ -239,6 +246,8 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   async function restoreBackup(file: File) {
     if (busy || workingRef.current) return
     if (!beginWork()) return
+    const trigger = backupImportTrigger.current
+    if (trigger) actionFocus.current = { trigger, destination: 'trigger' }
     setNotice('Importing review backup…')
     try {
       const result = await importReviewBackup(file)
@@ -255,7 +264,7 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
   return (
     <div className="saved-reviews">
       <div className="review-report-actions">
-        <button type="button" onClick={() => { void save() }} disabled={!report || busy || working || lastSavedReport === report}
+        <button type="button" onClick={event => { void save(event.currentTarget) }} disabled={!report || busy || working || lastSavedReport === report}
           title={report ? 'Keep this report, its settings and reviewed line on this device.' : 'Review this line first.'}>
           Save review
         </button>
@@ -330,10 +339,10 @@ export function SavedReviews({ line, report, headers, openingName, qualities, bu
               </>}
             </>}
           <div className="review-report-actions">
-            <button type="button" disabled={busy || working || !loaded || loadFailed || !runs.length} onClick={() => { void backup() }}>
+            <button type="button" disabled={busy || working || !loaded || loadFailed || !runs.length} onClick={event => { void backup(event.currentTarget) }}>
               Export review backup
             </button>
-            <button type="button" disabled={busy || working} onClick={() => backupInput.current?.click()}>
+            <button ref={backupImportTrigger} type="button" disabled={busy || working} onClick={() => backupInput.current?.click()}>
               Import review backup
             </button>
           </div>

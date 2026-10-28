@@ -1,0 +1,26 @@
+[
+  {
+    "stage": "whole game at selected final move",
+    "scrollTop": 5406,
+    "height": 220,
+    "total": 5626,
+    "current": true,
+    "currentVisible": true
+  },
+  {
+    "stage": "opening filter excludes current move",
+    "scrollTop": 0,
+    "height": 220,
+    "total": 1162,
+    "current": false,
+    "currentVisible": false
+  },
+  {
+    "stage": "endgame filter includes current move",
+    "scrollTop": 504,
+    "height": 220,
+    "total": 725,
+    "current": true,
+    "currentVisible": true
+  }
+]

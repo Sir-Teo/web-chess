@@ -1,0 +1,41 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-CJ3KvK4I.css              135.42 kB │ gzip:  25.17 kB
+dist/assets/NewGameDialog-BN9dEhWy.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-B_xYHdp0.js        16.08 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-0iNBnWx4.js            33.85 kB │ gzip:  11.35 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-DKfz_2uR.js               422.43 kB │ gzip: 136.48 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.70s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  PGN export preferences (1280×900, 1x, dark, defaults): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (320×812, 2x, light, stored validation): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (844×390, 2x, dark, stored validation): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (375×812, 1x, light, stored validation): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  PGN export preferences (375×812, 2x, light, blocked storage): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout
+  live export (1280px, 1x, dark): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy event; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  live export (375px, 1x, light): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy event; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  live export (375px, 2x, dark): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy event; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  live export (320px, 2x, light): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy event; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  manual copy (1280×900, 1x, dark): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy event, 44px actions and opener focus
+  manual copy (375×812, 1x, light): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy event, 44px actions and opener focus
+  manual copy (375×812, 2x, dark): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy event, 44px actions and opener focus
+  manual copy (320×568, 2x, light): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy event, 44px actions and opener focus
+  manual copy (844×390, 2x, dark): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy event, 44px actions and opener focus
+Focused browser UI checks passed.

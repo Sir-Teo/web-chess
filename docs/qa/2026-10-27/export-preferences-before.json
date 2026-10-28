@@ -1,0 +1,38 @@
+{
+  "chosen": [
+    {
+      "label": "Variations",
+      "checked": true
+    },
+    {
+      "label": "Comments",
+      "checked": false
+    },
+    {
+      "label": "Engine evals",
+      "checked": false
+    },
+    {
+      "label": "Glyphs",
+      "checked": false
+    }
+  ],
+  "reopened": [
+    {
+      "label": "Variations",
+      "checked": true
+    },
+    {
+      "label": "Comments",
+      "checked": true
+    },
+    {
+      "label": "Engine evals",
+      "checked": true
+    },
+    {
+      "label": "Glyphs",
+      "checked": true
+    }
+  ]
+}

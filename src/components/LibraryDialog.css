@@ -224,6 +224,17 @@
     margin-top: 0.4rem;
 }
 
+.library-export-matches {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    max-width: 100%;
+    margin-top: 0.6rem;
+    white-space: normal;
+}
+
 .library-hint {
     margin: 0.5rem 0 0;
     font-size: 0.74rem;

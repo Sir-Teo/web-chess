@@ -1,0 +1,14 @@
+{"browser":"chromium","port":"4324","commit":"8f526b9afa7d86016e6444aa9cc128154542497b","build":"Vite development source","dirty":true,"checks":["checkLiveExportCopy","checkManualClipboardFallback"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkLiveExportCopy
+  live export (1280px, 1x, dark): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy + clipboard; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  live export (375px, 1x, light): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy + clipboard; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  live export (375px, 2x, dark): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy + clipboard; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+  live export (320px, 2x, light): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy + clipboard; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold
+checkManualClipboardFallback
+  manual copy (1280×900, 1x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (375×812, 1x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (375×812, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (320×568, 2x, light): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+  manual copy (844×390, 2x, dark): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy + actual clipboard, 44px actions and opener focus
+Development focused checks passed.

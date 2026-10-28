@@ -1,0 +1,112 @@
+{
+  "browser": "webkit",
+  "fixture": {
+    "r": "read-only textarea",
+    "e": "editable textarea",
+    "i": "read-only text input"
+  },
+  "results": [
+    {
+      "id": "r",
+      "key": "Control+c",
+      "immediate": [],
+      "after100": []
+    },
+    {
+      "id": "r",
+      "key": "Meta+c",
+      "immediate": [],
+      "after100": []
+    },
+    {
+      "id": "r",
+      "key": "execCommand",
+      "immediate": [
+        {
+          "id": "r",
+          "text": "Read only PGN test text",
+          "at": 981
+        }
+      ],
+      "after100": [
+        {
+          "id": "r",
+          "text": "Read only PGN test text",
+          "at": 981
+        }
+      ]
+    },
+    {
+      "id": "e",
+      "key": "Control+c",
+      "immediate": [
+        {
+          "id": "e",
+          "text": "Editable PGN test text",
+          "at": 1269
+        }
+      ],
+      "after100": [
+        {
+          "id": "e",
+          "text": "Editable PGN test text",
+          "at": 1269
+        }
+      ]
+    },
+    {
+      "id": "e",
+      "key": "Meta+c",
+      "immediate": [],
+      "after100": []
+    },
+    {
+      "id": "e",
+      "key": "execCommand",
+      "immediate": [
+        {
+          "id": "e",
+          "text": "Editable PGN test text",
+          "at": 1612
+        }
+      ],
+      "after100": [
+        {
+          "id": "e",
+          "text": "Editable PGN test text",
+          "at": 1612
+        }
+      ]
+    },
+    {
+      "id": "i",
+      "key": "Control+c",
+      "immediate": [],
+      "after100": []
+    },
+    {
+      "id": "i",
+      "key": "Meta+c",
+      "immediate": [],
+      "after100": []
+    },
+    {
+      "id": "i",
+      "key": "execCommand",
+      "immediate": [
+        {
+          "id": "i",
+          "text": "Read only input text",
+          "at": 2433
+        }
+      ],
+      "after100": [
+        {
+          "id": "i",
+          "text": "Read only input text",
+          "at": 2433
+        }
+      ]
+    }
+  ]
+}

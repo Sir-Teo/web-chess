@@ -1,0 +1,7 @@
+{"browser":"chromium","port":"4324","commit":"611ade6c5f91f9c7141d65767084196291420757","build":"Vite development source","dirty":true,"checks":["checkUnavailableCastlingRepair"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkUnavailableCastlingRepair
+  castling repair (1280px, 1x, dark): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces
+  castling repair (375px, 2x, light): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces
+  castling repair (320px, 2x, dark): declared invalid rights stay visible; EP/castling repair in either order preserves independent flags, counters and partial drafts; keyboard/focus recovery works; both retained rights castle real pieces
+Development focused checks passed.

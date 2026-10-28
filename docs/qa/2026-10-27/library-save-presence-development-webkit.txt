@@ -1,0 +1,8 @@
+{"browser":"webkit","port":"4324","commit":"57834bec41562ab644c0d1a0990b09c28c188a31","build":"Vite development source","dirty":true,"checks":["checkLibrarySavedCopyPresence","checkOneGestureSavesOneGame"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkLibrarySavedCopyPresence
+  Library saved-copy presence (1280px, 1x, dark): an unrelated cross-tab deletion preserves the guard; refreshing the latest copy’s deletion enables Save, clears its stale explanation and permits exactly one new record without resurrection
+  Library saved-copy presence (375px, 2x, light): an unrelated cross-tab deletion preserves the guard; refreshing the latest copy’s deletion enables Save, clears its stale explanation and permits exactly one new record without resurrection
+checkOneGestureSavesOneGame
+  library: three clicks save one copy; named copies and a further move can save again; deleting unrelated games retains the guard, deleting the latest saved copy after rename permits exactly one new save
+Development focused checks passed.

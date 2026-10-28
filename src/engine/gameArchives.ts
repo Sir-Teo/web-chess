@@ -59,7 +59,9 @@ export function normalizeArchiveUsername(raw: string): string | null {
   // Neither could steer the request anywhere -- the alphabet below sees to
   // that -- but inventing a name out of a URL this module does not recognise is
   // a worse answer than saying so.
-  const fromUrl = value.match(/(?:lichess\.org\/@\/|chess\.com\/(?:member|members)\/)([^/?#\s]+)/i)
+  // Match the whole link: another site's path/query or surrounding prose
+  // must not turn into a different player's username.
+  const fromUrl = value.match(/^(?:(?:https?:)?\/\/)?(?:www\.)?(?:lichess\.org\/@\/|chess\.com\/(?:member|members)\/)([^/?#\s]+)(?:[/?#]\S*)?$/i)
   if (fromUrl) value = fromUrl[1]
 
   value = value.replace(/^@+/, '').trim()

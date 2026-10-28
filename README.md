@@ -2,7 +2,8 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
-The [October 25 audit](docs/audit-2026-10-25.md) records the latest library,
+The [October 27 audit](docs/audit-2026-10-27.md) records the continuing study-navigation
+improvements and browser verification. The [October 25 audit](docs/audit-2026-10-25.md) records the library,
 import, position-setup, keyboard and dependency fixes with validation evidence.
 The [September 12 audit](docs/audit-2026-09-12.md) includes real Stockfish
 measurements, browser QA and the prioritized roadmap.
@@ -43,7 +44,8 @@ given, and the app answering the reader who touches it.
   is worse than none, because re-picking it every time is the thing you wanted
   automated.
 - **A clock**: Pick a time control when you start a game — bullet through
-  classical, or none, which stays the default. Both clocks sit in the strip
+  rapid, or none, which stays the default. The numbers mean minutes per side
+  plus seconds added after each move. Both clocks sit in the strip
   above the board, the side to move is highlighted, tenths appear under ten
   seconds, and running out ends the game and records it in the PGN result. The
   engine plays to the clock rather than to a stopwatch: it takes a share of what
@@ -68,7 +70,7 @@ given, and the app answering the reader who touches it.
   reaching the last rank promotes to a queen without asking, and clicking
   anywhere else cancels — the same rules every other board uses, because they
   are the ones a premove has to follow to be worth having.
-- **Hint**: `H`, or the button in Play mode, asks the engine what it would play
+- **Hint**: When playing the computer, `H` or **Hint** asks what it would play
   and draws it on the board in the green the analysis side already uses for
   "the engine likes this". Asked at *full* strength rather than the opponent's,
   because the question is what the best move is — the engine is back at its own
@@ -82,10 +84,11 @@ given, and the app answering the reader who touches it.
   sat over Black's clock counting down.
 - **Who is up material**: A pill in the strip above the board reads "White +3"
   whenever the material is uneven, with what each side has taken spelled out in
-  words for the tooltip and the screen reader. Counted from the position the
-  game started from, so a FEN pasted in does not open fourteen captures down,
-  and read from the board rather than the moves, so it is right in a variation
-  and at any position you navigate to.
+  words for the tooltip and the screen reader. Material value follows the
+  displayed board, including engine-line previews. Captures follow the selected
+  line from its own starting position, so a FEN begins without invented captures,
+  a promoted pawn is not reported as taken, and a captured promoted queen is
+  named as a queen. Navigating back removes captures that have not happened yet.
 - **Resign**: Concede the game rather than playing a lost position out to mate
   or waiting for the clock. Two clicks — Resign, then Confirm? — and never a
   keyboard shortcut, because one keystroke should not end a game. Against the
@@ -135,14 +138,22 @@ given, and the app answering the reader who touches it.
 - **Type a move**: Open "Enter a move by name" in Play or Analysis for `Nf3`,
   `e2e4` or `O-O`; lowercase `nf3`, `0-0` and `e8q` work too. The field keeps
   focus while the opponent moves and explains loading, waiting and Step mode.
+  **Play move** returns focus to the field for the next move or a correction.
+  Move and promotion examples match the side to move.
   Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
   reopening an existing field keeps its draft and selection. It is omitted
-  while watching two engines.
+  while watching two engines. A held Enter submits once, so a wrong drill move
+  counts as one attempt; Enter used to compose text does not play a move.
 - **Move with the keyboard**: Focus a piece and press Enter or Space, use arrow
   keys or Tab to a legal destination, then Enter or Space to play. Arrows follow
   the current board orientation; Home/End move along the rank, and Escape
   cancels the selection. Focus follows the moved piece and respects your next
   selection.
+- **Read longer variations**: Choose **+N more** in the move list to expand a
+  variation, then **Show fewer** to restore its preview. Each branch expands
+  independently; the selected move stays visible when collapsing. Both controls
+  work with the keyboard and on touch screens. Deeply nested branches offer
+  **Open deeper line**; the current move stays in the list at every nesting level.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
@@ -202,19 +213,35 @@ given, and the app answering the reader who touches it.
   imported game, a finished one, a pass-and-play game looked back over. It
   stops at the end of the line or the moment you take over. `Space` toggles it
   in Analysis; in Play mode `Space` still pauses the game.
+- **Replay a completed game**: Choose **Replay game** on the result card to
+  start watching from the first position in Analysis. Playback controls reopen
+  so you can stop or change speed; the game clock stays paused.
 - **Engine settings that stay set**: `Threads` is the setting that decides how
   much of the machine a search gets, and the app picks a default for the
   device. That default used to reassert itself: raise Threads to 12 in the
   Engine Lab on a 16-core machine, import a game, and the engine was quietly
   back on 8 with nothing on screen saying so, because `ucinewgame` produces a
   handshake and the handshake re-sent the recommendation. It is applied once
-  per engine now, so what you set is what searches.
+  per engine now, so what you set is what searches. Apply numeric or text
+  options with Enter or by leaving the field. Enter keeps you in that field
+  after the engine acknowledges the change.
 - **Search diagnostics for pros**: Pro mode reports ordinary and selective depth, nodes, NPS, transposition-table occupancy, tablebase hits, and elapsed time from Stockfish's live UCI output, so Hash and Syzygy settings can be judged from evidence rather than guesswork.
+- **Analyze book and tablebase moves**: Choose a ranked move to start a search
+  restricted to that candidate, or analyze the top three book moves together.
+  These actions work with Auto-analyze off and reload a released engine. The
+  board stays in place; candidate scores leave the position score and review
+  intact. Book suggestions stay hidden while a drill waits for your answer.
 - **Understand the percentages**: A collapsed guide beside the charts explains
   human-game Winrate estimates and Stockfish's win/draw/loss model, including
   why a neutral 50% on one graph can accompany a high draw probability. It is
   available in Coach and Pro, including Review, with links to both models.
+  Partial charts show reading coverage and explain when curves cross gaps.
+  Missing readings retain the actual move notation, including setup positions
+  and variations, in the visible readout and screen-reader value.
 - **Game review, of the line you are on**: Import a PGN, run a review pass, filter critical moments by side, inspect accuracy, and jump from a review row back to the board. The review follows the branch the board is standing in, so a variation can be reviewed like the game — and when that is not the main line it says so. Accuracy and move labels are scored on winning chances rather than raw centipawns, so an imprecision in a decided game is not called a blunder. The labels are the ones readers arrive knowing: *Book* while a sound move stays in the opening table, *Best* for the engine's own move and nothing else, *Excellent* for one that gave up almost nothing, then Good, Inaccuracy, Mistake and Blunder — so a row never reads "Best e4" beside a move it also calls Best. A best-move hint appears only once a search deep enough to grade the move has run; the 70 ms import sweep's choice is not one.
+- **Stop a running review**: The review button shows **Stop review** and its
+  progress percentage while it works. Press it to stop; a held Enter cannot
+  accidentally toggle the run back on or off.
 - **Accuracy by phase**: When a line spans multiple phases, Opening,
   Middlegame and Endgame show both players’ accuracy and scored-move counts.
   Choose a phase to filter the review; choose it again to return to the whole
@@ -403,6 +430,9 @@ given, and the app answering the reader who touches it.
   database import above reads straight back. Missing result markers are added
   to the download so unfinished headerless games stay separate; saved originals
   keep their text. Setup-only studies also survive the roundtrip.
+  Search or turn on **Starred only**, then **Export matches** to download that
+  collection in the displayed sort order, including matches beyond the first
+  page. **Export PGN** and **Export backup** still save the whole library.
 - **Fetch your own games by username**: Type a Lichess or chess.com name on the
   Import tab and the last ten games — or up to fifty — arrive in the paste box,
   newest first, with no sign-in and no file to find. Both sites publish a
@@ -415,8 +445,12 @@ given, and the app answering the reader who touches it.
   themselves. A game in a variant this board does not play — Chess960 is the
   common one in a chess.com archive — is named and counted rather than reported
   as damaged.
+  Successful fetches remember the source, game count and a separate username
+  for each site on this device. Reopening restores the fields for the next fetch.
   A slow fetch can be canceled in place. Pasting text, choosing another file,
   or changing the archive request keeps late replies from replacing your newer draft.
+  Press Enter in either the username or Games field to fetch. Repeated or held
+  Enter keeps the current request running; **Cancel fetch** stops it explicitly.
 - **Import a whole database**: Paste or open a PGN file with many games in it —
   which is what Lichess and chess.com hand you — and add the lot to the library
   in one go, each named from its own headers. A game in the file that will not
@@ -424,7 +458,7 @@ given, and the app answering the reader who touches it.
   would overflow the library says how many were left out. Collections without
   headers or Event tags work too; main-line results separate headerless games
   and their outcomes appear in the library and its search results.
-- **Saved games**: Use **Save game to Library** in Commands to open the naming form for the current game or position study. Keep games in a library stored in IndexedDB, search them by player, event or opening (including “jose” for “José” and “lodz” for “Łódź”), star and rename them, and export or import the whole shelf as JSON. While a backup is being read, **Cancel import** or close Library to cancel it. Use **Starred only** to focus on saved favorites while keeping your search and sort order. **Game date** orders recorded dates newest first; partial dates stay with their known year or month, and unknown dates come last. Down from search enters the results; Up/Down moves the same action between games, and Home/End jumps to the first/last shown game. Up from the first row returns to search; Down from the last row reaches Show more when available. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood. Restore keeps the selected position too, including after a takeback or inside a variation.
+- **Saved games**: Use **Save game to Library** in Commands to open the naming form for the current game or position study. Keep games in a library stored in IndexedDB, search them by player, event or opening (including “jose” for “José” and “lodz” for “Łódź”), star and rename them, and export or import the whole shelf as JSON. While a backup is being read, **Cancel import** or close Library to cancel it. Use **Starred only** to focus on saved favorites while keeping your search and sort order. Your chosen sort order is remembered between visits. **Game date** orders recorded dates newest first; partial dates stay with their known year or month, and unknown dates come last. Down from search enters the results; Up/Down moves the same action between games, and Home/End jumps to the first/last shown game. Up from the first row returns to search; Down from the last row reaches Show more when available. Rename inline with Enter to save or Escape to cancel. A rejected save keeps the name you typed so you can retry. The game in progress is auto-saved separately, so a reload offers to pick up where you left off — and for a game that was being *played*, that now includes the opponent, the side you had and the clock, stopped where it stood. Restore keeps the selected position too, including after a takeback or inside a variation.
 - **Unreadable game recovery**: If restoring an auto-saved game fails, copy or
   download its original PGN before discarding it. Clipboard failures leave a
   retry and download available; the saved text stays intact until you discard it.
@@ -433,10 +467,16 @@ given, and the app answering the reader who touches it.
   position text and the current export options intact. Export text stays still
   while focused, then shows newer analysis when you leave the field. Copy
   confirmations track the displayed text or current share link.
+  Read-only PGN and link fields support Ctrl/Cmd+A to select and Ctrl/Cmd+C
+  to copy, including when the app's clipboard API is unavailable.
 - **Promotion choices**: Choose a full named piece or press Q/R/B/N, including underpromotions for either color. The picker adapts to enlarged text and short screens, keeps keyboard focus visible, and preserves browser shortcuts and composing keystrokes.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, en passant targets, and move counters. Flip the setup board to work from either player's viewpoint; coordinates and keyboard movement follow the view while the position stays intact. File and rank labels identify setup squares. Editing a position preserves its en passant capture; changing the side or removing the required pawn clears it. The palette and board each use one Tab stop. Left/Right move through tools; all four arrows move between board squares. Enter/Space selects a tool or places/erases. Home/End jumps to the first/last tool or either end of a rank.
+  **Import & Analyze** and **Load & Analyze** reopen the analysis panel at its
+  saved width, including when loading saved games or position studies.
   Invalid starting positions are rejected without replacing the current study;
   the import stays open for correction.
+  PGN export choices for variations, comments, engine evaluations and glyphs
+  are remembered on this device when browser storage is available.
   PGN file reads show progress; **Cancel file read** keeps the import text you
   already have, and you can choose another file or paste instead.
   Declared castling rights require that side’s king and rook on their home squares.
@@ -488,6 +528,8 @@ given, and the app answering the reader who touches it.
   standalone position notes. `Export PGN` opens the export options directly
   for a download or manual copy of the game or position study.
   `Set up position` opens the current board in the piece editor.
+  Analyze, Review and Engine Lab reopen a collapsed analysis panel at its
+  saved width. Review game opens Review to show its progress and results.
   `Open in Lichess` takes the current line, while
   `Open in chess.com` takes the current position. Copies report success or
   explain how to copy manually when clipboard access is unavailable.

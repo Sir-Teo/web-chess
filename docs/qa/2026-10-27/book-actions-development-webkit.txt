@@ -1,0 +1,23 @@
+{"browser":"webkit","port":"4324","commit":"0528cd934eafc14e9dd472780355dcd35315666f","build":"Vite development source","dirty":true,"checks":["checkBookMoveAnalysisActions","checkTablebaseMoveReading","checkCandidateSearchKeepsPositionScore"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkBookMoveAnalysisActions
+  book analysis (1280x900, 1x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+  book analysis (375x812, 1x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+  book analysis (320x812, 2x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+  book analysis (844x390, 2x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results
+checkTablebaseMoveReading
+  tablebase move reading (1280px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (1280px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  contrast (tablebase moves / pro / 200% text): 164 measured, 0 under the floor (146 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  contrast (tablebase moves / beginner / 200% text): 147 measured, 0 under the floor (129 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+checkCandidateSearchKeepsPositionScore
+  candidate search (1280px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, known position): preserves position/export, labels candidates, and clears the restriction on the next search
+  candidate search (375px, unevaluated position): preserves position/export, labels candidates, and clears the restriction on the next search
+Development focused checks passed.

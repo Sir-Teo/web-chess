@@ -5,6 +5,7 @@ import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
 import { EngineDetails } from './components/EngineDetails'
 import { EngineConsoleOutput } from './components/EngineConsoleOutput'
+import { keepFocusedControlVisible, revealInViewport } from './components/keepFocusedControlVisible'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -67,7 +68,7 @@ import { reviewImpactLabel } from './engine/reviewImpact'
 import { reviewFaultPosition, reviewFaults, stepToReviewFault } from './engine/reviewNavigation'
 import { normalizeSpinOptionInput } from './engine/options'
 import { topArrowColor } from './engine/arrowColors'
-import { bestMoveLabel, ponderMoveLabel } from './engine/moveLabels'
+import { bestMoveLabel, moveNumberPrefix, ponderMoveLabel } from './engine/moveLabels'
 import {
   countLabel,
   engineTelemetryLabel,
@@ -156,7 +157,7 @@ import {
   type ClockState,
 } from './engine/chessClock'
 import { describeGameEnd, describeGameEndFromPath, gameResultScore } from './engine/gameEnd'
-import { describeCaptures, materialAdvantageLabel, materialBalance } from './engine/material'
+import { describeCaptures, materialAdvantageLabel, materialBalance, type MaterialMove } from './engine/material'
 import { hasMatingMaterial } from './engine/matingMaterial'
 import {
   resignDisabledReason,
@@ -549,7 +550,8 @@ function App() {
   const analysisPanelRef = useRef<HTMLElement>(null)
   const analysisHeaderRef = useRef<HTMLElement>(null)
   const analysisStatusRef = useRef<HTMLDivElement>(null)
-  const revealOpeningIntelRef = useRef(false)
+  const revealCandidateAnalysisRef = useRef(false)
+  const revealOpeningIntelRef = useRef<{ source: Element | null } | null>(null)
   const [viewport, setViewport] = useState(readViewport)
   /**
    * The OS-level request for less motion. The app's own scrolling already
@@ -894,6 +896,8 @@ function App() {
   const [sampleLoadError, setSampleLoadError] = useState<string | null>(null)
   const [isImportingGame, setIsImportingGame] = useState(false)
   const [boardRevealTick, setBoardRevealTick] = useState(0)
+  const boardRevealTargetRef = useRef<'stage' | 'board'>('stage')
+  const newGameBoardFocusRef = useRef(false)
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
   const handledBoardRevealRef = useRef(0)
   const handledAnalysisRevealRef = useRef(0)
@@ -1116,7 +1120,7 @@ function App() {
    * the position being analysed, which is what this is. Nothing else moves --
    * not the evaluation, not the move list, not the engine.
    */
-  const [linePreview, setLinePreview] = useState<{ fen: string; uci: string; label: string } | null>(null)
+  const [linePreview, setLinePreview] = useState<{ fen: string; uci: string; label: string; moves: readonly MaterialMove[] } | null>(null)
   const rightClickAnchorRef = useRef<string | null>(null)
   const promotionDialogRef = useRef<HTMLDivElement>(null)
 
@@ -2217,6 +2221,7 @@ function App() {
     setSettingsOpen(false)
     setWorkspaceMode('analysis')
     setAnalysisTab('review')
+    setRightWidth(width => width || preferredRightWidthRef.current)
     setAnalysisPanelRevealTick(tick => tick + 1)
     pendingReviewOptionsRef.current = undefined
     setPendingGameReview(true)
@@ -2767,57 +2772,60 @@ function App() {
     })
   }, [])
 
-  const applyBookMovesToSearch = useCallback(() => {
-    const topMoves = openingTopMoves.slice(0, 3).map(move => move.uci)
-    if (!topMoves.length) return
-    setShowAdvancedAnalyze(true)
-    setSearchMovesInput(topMoves.join(' '))
-    setActivePreset(null)
-    setAnalysisTab('analyze')
-  }, [openingTopMoves])
-
   const openOpeningIntel = useCallback(() => {
-    revealOpeningIntelRef.current = true
+    revealOpeningIntelRef.current = { source: document.activeElement }
     setAnalysisExperience('pro')
     setAnalysisTab('analyze')
   }, [])
 
   useEffect(() => {
-    if (!revealOpeningIntelRef.current) return
+    const request = revealOpeningIntelRef.current
+    if (!request) return
+    if (backgroundUiHidden || workspaceMode !== 'analysis') {
+      revealOpeningIntelRef.current = null
+      return
+    }
     if (analysisTab !== 'analyze' || analysisExperience !== 'pro') return
-    revealOpeningIntelRef.current = false
+    revealOpeningIntelRef.current = null
+    if (document.activeElement !== document.body && document.activeElement !== request.source) return
+    const token = openingIntelRef.current?.querySelector<HTMLInputElement>('.opening-token-input')
+    if (!token) return
+    token.focus({ preventScroll: true })
 
-    let settleTimer: ReturnType<typeof window.setTimeout> | null = null
-    let finalTimer: ReturnType<typeof window.setTimeout> | null = null
     const revealOpeningIntel = () => {
+      if (document.activeElement !== token) return
       const openingIntel = openingIntelRef.current
       if (!openingIntel) return
       const panel = openingIntel.closest('.panel-inner') as HTMLElement | null
       const scrollContainer = isMobileLayout ? mainContainerRef.current : panel
       if (!scrollContainer) {
-        openingIntel.scrollIntoView({ block: 'start' })
-        return
+        openingIntel.scrollIntoView({ block: 'start', behavior: 'instant' })
+      } else {
+        const containerRect = scrollContainer.getBoundingClientRect()
+        const targetRect = openingIntel.getBoundingClientRect()
+        const style = getComputedStyle(scrollContainer)
+        const pinnedInset = Number.parseFloat(style.scrollPaddingTop) || 0
+        const top = scrollContainer.scrollTop + targetRect.top - containerRect.top - pinnedInset - 12
+        scrollContainer.scrollTo({ top: Math.max(0, top), behavior: 'instant' })
+        const visibleTop = Math.max(0, containerRect.top + pinnedInset)
+        const visibleBottom = Math.min(innerHeight, containerRect.bottom)
+        if (visibleBottom > visibleTop && scrollContainer.scrollHeight > scrollContainer.clientHeight
+          && ['auto', 'scroll', 'hidden'].includes(style.overflowY)) {
+          const field = token.getBoundingClientRect()
+          const delta = field.bottom > visibleBottom ? field.bottom - visibleBottom
+            : field.top < visibleTop ? field.top - visibleTop : 0
+          scrollContainer.scrollBy({ top: delta, behavior: 'instant' })
+          return
+        }
       }
-
-      const containerRect = scrollContainer.getBoundingClientRect()
-      const targetRect = openingIntel.getBoundingClientRect()
-      const pinnedInset = Number.parseFloat(getComputedStyle(scrollContainer).scrollPaddingTop) || 0
-      const top = scrollContainer.scrollTop + targetRect.top - containerRect.top - pinnedInset - 12
-      scrollContainer.scrollTo({
-        top: Math.max(0, top),
-        behavior: 'auto',
-      })
+      // A short viewport may fit the heading but cover the field. Native
+      // scrolling also reaches the outer page when workspace chrome scrolls.
+      token.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
     }
 
     revealOpeningIntel()
-    settleTimer = window.setTimeout(revealOpeningIntel, 120)
-    finalTimer = window.setTimeout(revealOpeningIntel, 320)
-
-    return () => {
-      if (settleTimer) window.clearTimeout(settleTimer)
-      if (finalTimer) window.clearTimeout(finalTimer)
-    }
-  }, [analysisExperience, analysisTab, isMobileLayout])
+    return scheduleRevealRetries(revealOpeningIntel, [120, 320])
+  }, [analysisExperience, analysisTab, backgroundUiHidden, isMobileLayout, workspaceMode])
 
   const resetSavedWorkspace = useCallback(() => {
     try {
@@ -2931,7 +2939,7 @@ function App() {
     setMultiPv(1)
   }, [])
 
-  const runAnalyze = useCallback(() => {
+  const runAnalyze = useCallback((candidateMoves?: string[]) => {
     if (!engineEnabled) return
     cancelStaleBackgroundAnalysis()
     const limits: UciGoLimits = {}
@@ -2945,10 +2953,11 @@ function App() {
     if (analyzeMode === 'infinite') limits.infinite = true
 
     const normalizedLimitNodes = normalizeOptionalIntegerInput(limitNodes, LIMIT_NODES_BOUNDS)
-    if (showAdvancedAnalyze && typeof normalizedLimitNodes === 'number') {
+    const useAdvancedLimits = showAdvancedAnalyze || candidateMoves !== undefined
+    if (useAdvancedLimits && typeof normalizedLimitNodes === 'number') {
       limits.nodes = normalizedLimitNodes
     }
-    if (showAdvancedAnalyze && useClockLimits) {
+    if (useAdvancedLimits && useClockLimits) {
       limits.wtime = normalizeRequiredIntegerInput(whiteTimeMs, CLOCK_TIME_BOUNDS)
       limits.btime = normalizeRequiredIntegerInput(blackTimeMs, CLOCK_TIME_BOUNDS)
       limits.winc = normalizeRequiredIntegerInput(whiteIncMs, CLOCK_INCREMENT_BOUNDS)
@@ -2966,7 +2975,7 @@ function App() {
       hashMb,
       showWdl,
       rootFen: currentRootFen,
-      searchMoves: showAdvancedAnalyze ? parsedSearchMoves : [],
+      searchMoves: candidateMoves ?? (showAdvancedAnalyze ? parsedSearchMoves : []),
       historyMoves: currentPathMovesKey ? currentPathMovesKey.split(' ') : [],
     })
   }, [
@@ -3077,8 +3086,25 @@ function App() {
     if (workspaceMode !== 'analysis') handleWorkspaceModeChange('analysis')
     pause()
     setAnalysisTab(tab)
+    setRightWidth(width => width || preferredRightWidthRef.current)
     setAnalysisPanelRevealTick(tick => tick + 1)
   }, [handleWorkspaceModeChange, pause, workspaceMode])
+
+  const analyzeCandidateMoves = useCallback((moves: string[]) => {
+    if (!moves.length) return
+    setShowAdvancedAnalyze(true)
+    setSearchMovesInput(moves.join(' '))
+    setActivePreset(null)
+    revealCandidateAnalysisRef.current = true
+    handleAnalysisTabChange('analyze')
+    // Pass the selection directly: the field's state still holds the previous
+    // candidates until React commits, and Auto-analyze only follows board moves.
+    runAnalyze(moves)
+  }, [handleAnalysisTabChange, runAnalyze])
+
+  const analyzeTopBookMoves = useCallback(() => {
+    analyzeCandidateMoves(openingTopMoves.slice(0, 3).map(move => move.uci))
+  }, [analyzeCandidateMoves, openingTopMoves])
 
   const runLabCommand = useCallback(
     async (command: string) => {
@@ -3420,6 +3446,11 @@ function App() {
     () => currentLineNodes.slice(1).map(n => n.move!).filter(Boolean),
     [currentLineNodes],
   )
+  const graphPositionLabels = useMemo(
+    () => currentLineNodes.map((node, index) => index === 0 ? 'Start'
+      : `${moveNumberPrefix(node.fen) ?? ''} ${node.san}`.trim()),
+    [currentLineNodes],
+  )
 
   /**
    * The line the review reports on.
@@ -3595,8 +3626,9 @@ function App() {
   const expertCommandDisabledReason = expertModeEnabled
     ? engineBusyDisabledReason
     : 'Expert mode only: these commands take the engine over for a while.'
+  const reviewGameButtonText = isBatchReviewing ? `Stop review (${batchReviewPercent}%)` : 'Review Game'
   const reviewGameButtonLabel = isBatchReviewing
-    ? `Stop game review. ${batchReviewProgress.done} of ${batchReviewProgress.total} positions reviewed.`
+    ? `${reviewGameButtonText}. ${batchReviewProgress.done} of ${batchReviewProgress.total} positions reviewed.`
     : reviewGameDisabledReason
       ? `Review Game unavailable. ${reviewGameDisabledReason}`
       : 'Review Game'
@@ -4734,8 +4766,16 @@ function App() {
    * build the SAN, so the position after each move is a by-product rather than
    * work this repeats.
    */
-  const showLinePreview = useCallback((step: PvMove) => {
-    setLinePreview({ fen: step.fenAfter, uci: step.uci, label: step.numbered })
+  const showLinePreview = useCallback((step: PvMove, steps: readonly PvMove[]) => {
+    setLinePreview({
+      fen: step.fenAfter, uci: step.uci, label: step.numbered,
+      // Keep the complete preview path. Committing changes the current tree
+      // before the preview disappears, so appending to that tree would count twice.
+      moves: [
+        ...gameTreeRef.current.currentPath().flatMap(node => node.move ? [node.move] : []),
+        ...steps.slice(0, step.index + 1),
+      ],
+    })
   }, [])
   const clearLinePreview = useCallback(() => setLinePreview(null), [])
 
@@ -5401,9 +5441,23 @@ function App() {
     setSampleLoadingId(null)
   }, [abortSampleFetch])
 
-  const requestBoardReveal = useCallback(() => {
+  const requestBoardReveal = useCallback((target: 'stage' | 'board' = 'stage') => {
+    boardRevealTargetRef.current = target
     setBoardRevealTick(tick => tick + 1)
   }, [])
+
+  const replayFinishedGame = useCallback(() => {
+    cancelPendingAiMove()
+    pause()
+    setSettingsOpen(false)
+    setWorkspaceMode('analysis')
+    setAnalysisTab('analyze')
+    setBottomPanelOpen(true)
+    goFirst()
+    setAutoplay(true)
+    boardStageRef.current?.focus({ preventScroll: true })
+    requestBoardReveal('board')
+  }, [cancelPendingAiMove, goFirst, pause, requestBoardReveal])
 
   const revealDrillMove = useCallback(() => {
     if (drillRevealReason || !drill) return
@@ -5440,11 +5494,21 @@ function App() {
     boardStageRef.current?.focus({ preventScroll: true })
   }, [backgroundUiHidden, drill, fen, reviewPractice])
 
+  useLayoutEffect(() => {
+    if (!newGameBoardFocusRef.current) return
+    newGameBoardFocusRef.current = false
+    // Wait for the new game to remove the dialog's background inertness.
+    // A newer modal owns focus if it has already replaced that dialog.
+    if (!backgroundUiHidden) boardStageRef.current?.focus({ preventScroll: true })
+  }, [backgroundUiHidden, boardRevealTick])
+
   // Each reveal owns its settle timers. New input, a modal, or the other
   // reveal supersedes them. Consumed requests never replay after cleanup.
   useEffect(() => {
     if (boardRevealTick === 0 || backgroundUiHidden || handledBoardRevealRef.current === boardRevealTick) return
     handledBoardRevealRef.current = boardRevealTick
+    const target = boardRevealTargetRef.current
+    boardRevealTargetRef.current = 'stage'
     if (scrollWorkspaceChrome) {
       const stage = boardStageRef.current
       stage?.focus({ preventScroll: true })
@@ -5462,6 +5526,10 @@ function App() {
         top: boardStage.offsetTop,
         behavior: 'auto',
       })
+      if (target === 'board' && document.activeElement === boardStage) {
+        const surface = boardStage.querySelector<HTMLElement>('.board-surface')
+        if (surface) revealInViewport(surface)
+      }
     }
 
     // Focus belongs to the explicit request. Later layout retries only scroll.
@@ -5470,10 +5538,33 @@ function App() {
   }, [analysisPanelRevealTick, backgroundUiHidden, boardRevealTick, isMobileLayout, moveEntryFocusTick, scrollWorkspaceChrome])
 
   useEffect(() => {
-    if (analysisPanelRevealTick === 0 || backgroundUiHidden || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
+    if (backgroundUiHidden) {
+      revealCandidateAnalysisRef.current = false
+      return
+    }
+    if (analysisPanelRevealTick === 0 || handledAnalysisRevealRef.current === analysisPanelRevealTick) return
     handledAnalysisRevealRef.current = analysisPanelRevealTick
-    if (!isMobileLayout) return
+    const revealCandidate = revealCandidateAnalysisRef.current
+    revealCandidateAnalysisRef.current = false
     if (workspaceMode !== 'analysis') return
+    if (revealCandidate) {
+      // The header can fill the viewport with enlarged text. Land beside Stop
+      // and the results, rather than leaving the new search below the fold.
+      const target = analysisPanelRef.current?.querySelector<HTMLButtonElement>('.analysis-actions .btn-primary')
+      if (!target) return
+      target.focus({ preventScroll: true })
+      const reveal = () => {
+        if (document.activeElement === target) target.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+      }
+      reveal()
+      return scheduleRevealRetries(reveal, [120, 320])
+    }
+    if (!isMobileLayout) {
+      // Review offers disappear when they open this panel. Recover that lost
+      // focus on desktop too; an existing tab or a newer control keeps it.
+      if (document.activeElement === document.body) analysisPanelRef.current?.focus({ preventScroll: true })
+      return
+    }
 
     const scrollAnalysisPanelToTop = (focus = false) => {
       const mainContainer = mainContainerRef.current
@@ -5520,6 +5611,7 @@ function App() {
       if (shouldAnalyzeAfterLoad) {
         setWorkspaceMode('analysis')
         setAnalysisTab('analyze')
+        setRightWidth(width => width || preferredRightWidthRef.current)
       }
 
       setIsImportingGame(true)
@@ -5845,6 +5937,7 @@ function App() {
       if (options?.forceAnalysis) {
         setWorkspaceMode('analysis')
         setAnalysisTab('analyze')
+        setRightWidth(width => width || preferredRightWidthRef.current)
       }
 
       cancelPendingAiMove()
@@ -6087,7 +6180,8 @@ function App() {
       if (control) setPgnHeaders({ TimeControl: timeControlTag(control) })
 
       setOrientation(defaultOrientationForGameMode(mode, color))
-      requestBoardReveal()
+      newGameBoardFocusRef.current = true
+      requestBoardReveal('board')
     },
     [cancelPendingAiMove, cancelSampleLoad, clearBatchReview, clearBoardSelection, clearImportSweep, game, gameTree, newGame, requestBoardReveal, retryAiPlayer, setAiPlayerDifficulty, setPgnHeaders],
   )
@@ -6443,7 +6537,10 @@ function App() {
       // reader looking for it should learn what it needs, not wonder whether
       // they misremembered the name.
       disabled: !reviewFromPlay && Boolean(reviewGameDisabledReason),
-      run: reviewFromPlay ? reviewFinishedGame : startBatchReview,
+      run: reviewFromPlay ? reviewFinishedGame : () => {
+        handleAnalysisTabChange('review')
+        startBatchReview()
+      },
     },
     {
       id: 'take-back',
@@ -6800,9 +6897,10 @@ function App() {
   const keyboardResizeStep = 40
 
   const activateOnKeyboard = (event: ReactKeyboardEvent<HTMLElement>, action: () => void) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
+    if (event.defaultPrevented || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)
+      || (event.key !== 'Enter' && event.key !== ' ')) return
     event.preventDefault()
-    action()
+    if (!event.repeat) action()
   }
 
   const applyPanelResize = (side: keyof PanelWidths, width: number) => {
@@ -6817,9 +6915,9 @@ function App() {
   const toggleRightPanel = () => setRightWidth(value => (value === 0 ? preferredRightWidthRef.current : 0))
 
   const handleLeftResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      toggleLeftPanel()
+      activateOnKeyboard(event, toggleLeftPanel)
       return
     }
     if (event.key === 'Home') {
@@ -6844,9 +6942,9 @@ function App() {
   }
 
   const handleRightResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      toggleRightPanel()
+      activateOnKeyboard(event, toggleRightPanel)
       return
     }
     if (event.key === 'Home') {
@@ -6938,6 +7036,7 @@ function App() {
   // The Preview pill beside it says the position is not the game's.
   const displayedResultLabel = previewChess ? previewEnding?.label : gameResultLabel
   const displayedPosition = previewChess ?? game
+  const displayedFen = linePreview?.fen ?? fen
   const turnLabel = displayedResultLabel
     ?? `${displayedPosition.turn() === 'w' ? 'White' : 'Black'} to move${displayedPosition.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
@@ -6953,7 +7052,7 @@ function App() {
   const importedResult = knownPgnHeader(pgnHeaders.Result)
   const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event, APP_PLACEHOLDER_HEADERS.Event), importedResult]
     .filter(Boolean).join(' · ')
-  const labelFenFields = (linePreview?.fen ?? fen).split(/\s+/)
+  const labelFenFields = displayedFen.split(/\s+/)
   const labelFullmove = Number(labelFenFields[5]) || 1
   // Once the game is over there is no move to come, so name the move it ended
   // on: Fool's mate is over on move 2, but the FEN already counts White's 3rd.
@@ -6988,8 +7087,9 @@ function App() {
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(
-    () => materialBalance(mainLineNodes[0]?.fen ?? '', fen),
-    [fen, mainLineNodes],
+    () => materialBalance(mainLineNodes[0]?.fen ?? '', displayedFen,
+      linePreview?.moves ?? currentPathNodes.flatMap(node => node.move ? [node.move] : [])),
+    [currentPathNodes, displayedFen, linePreview, mainLineNodes],
   )
   const materialLeader: 'w' | 'b' | null = material.delta > 0 ? 'w' : material.delta < 0 ? 'b' : null
   const materialDetail = useMemo(() => {
@@ -7156,8 +7256,8 @@ function App() {
         disabled={Boolean(playFromHereDisabledReason)}
         title={playFromHereDisabledReason ?? 'Take the move against the engine from this position'}
         aria-label={playFromHereDisabledReason
-          ? `Play from this position unavailable. ${playFromHereDisabledReason}`
-          : 'Play from this position against the engine'}
+          ? `Play from here unavailable. ${playFromHereDisabledReason}`
+          : 'Play from here against the engine'}
       >
         <IconSwords /> Play from here
       </button>
@@ -7440,7 +7540,27 @@ function App() {
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}
-      data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}>
+      data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}
+      onKeyDownCapture={event => {
+        // WebKit can ignore Select All and Copy in read-only native fields.
+        const field = event.target
+        if (!event.defaultPrevented && (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)
+          && field.readOnly && field === document.activeElement && event.ctrlKey !== event.metaKey
+          && !event.altKey && !event.shiftKey && !isCompositionKey(event.nativeEvent)) {
+          if (event.key.toLowerCase() === 'a') {
+            event.preventDefault()
+            field.select()
+          } else if (event.key.toLowerCase() === 'c' && field.selectionStart !== null
+            && field.selectionEnd !== null && field.selectionEnd > field.selectionStart) {
+            try {
+              if (document.execCommand('copy')) event.preventDefault()
+            } catch { /* Leave the browser's default Copy available. */ }
+          }
+        }
+        // A held Enter must not undo a toggle or reopen a dialog after focus returns.
+        if (event.key === 'Enter' && event.repeat && event.target instanceof Element
+          && event.target.closest('button[aria-pressed], button[aria-haspopup="dialog"], summary[aria-haspopup="dialog"]')) event.preventDefault()
+      }}>
       <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"
@@ -7502,16 +7622,16 @@ function App() {
               aria-hidden={settingsOpen ? true : undefined}
               inert={settingsOpen ? true : undefined}
             >
-              <button type="button" onClick={openNewGameDialog} aria-label="Start new game" title="New game">
+              <button type="button" onClick={openNewGameDialog} aria-label="Start new game" aria-haspopup="dialog" aria-keyshortcuts="N" title="New game">
                 <span className="btn-icon"><IconRefresh /></span> <span className="btn-label">New game</span>
               </button>
               <button type="button" onClick={flipBoard} aria-label="Flip board" aria-keyshortcuts="F" title="Flip board">
                 <span className="btn-icon"><IconFlip /></span> <span className="btn-label">Flip</span>
               </button>
-              <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" title="PGN and FEN">
+              <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" aria-haspopup="dialog" title="PGN and FEN">
                 <span className="btn-icon"><IconDownload /></span> <span className="btn-label">PGN</span>
               </button>
-              <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" title="Library">
+              <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" aria-haspopup="dialog" title="Library">
                 <span className="btn-icon"><IconClipboard /></span> <span className="btn-label">Library</span>
               </button>
               {/* The palette was keyboard-only until now, which on a phone means
@@ -7527,6 +7647,7 @@ function App() {
                    visible control on eight surfaces -- this was the only one,
                    and the Library button beside it already gets it right. */
                 aria-label="Open the Commands palette"
+                aria-haspopup="dialog"
                 aria-keyshortcuts={COMMAND_PALETTE_ARIA_KEYSHORTCUTS}
                 title={`Commands (${commandPaletteShortcutLabel()})`}
                 data-testid="command-palette-btn"
@@ -7574,6 +7695,7 @@ function App() {
                     type="button"
                     className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
                     aria-pressed={gameMode === id}
+                    aria-haspopup="dialog"
                     title={title}
                     onClick={event => openNewGameDialogForMode(id, event)}
                   >
@@ -7853,21 +7975,28 @@ function App() {
                         </label>
                       )}
                       {analyzeMode === 'mate' && (
-                        <label className="engine-option-row">
-                          <span>Mate target (plies)</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            step={1}
-                            value={mateTarget}
-                            onChange={e => {
-                              setActivePreset(null)
-                              setMateTarget(parseIntegerInputValue(e.target.value))
-                            }}
-                            onBlur={() => setMateTarget(value => normalizeRequiredIntegerInput(value, MATE_TARGET_BOUNDS))}
-                          />
-                        </label>
+                        <>
+                          <label className="engine-option-row">
+                            <span>Mate target (moves)</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={30}
+                              step={1}
+                              value={mateTarget}
+                              aria-describedby="mate-target-help"
+                              onChange={e => {
+                                setActivePreset(null)
+                                setMateTarget(parseIntegerInputValue(e.target.value))
+                              }}
+                              onBlur={() => setMateTarget(value => normalizeRequiredIntegerInput(value, MATE_TARGET_BOUNDS))}
+                            />
+                          </label>
+                          <p id="mate-target-help" className="panel-copy small mate-target-help">
+                            Search for mate within this many moves. If none is found, the search can
+                            keep running; press Stop to end it.
+                          </p>
+                        </>
                       )}
                       <label className="control">
                         <span>MultiPV</span>
@@ -8177,6 +8306,7 @@ function App() {
                   </div>
                 ) : <WinrateGraph
                   points={winratePoints}
+                  positionLabels={graphPositionLabels}
                   currentIndex={currentPathNodes.length - 1}
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
@@ -8202,6 +8332,7 @@ function App() {
                   </div>
                 ) : <WdlProgressGraph
                   points={wdlPoints}
+                  positionLabels={graphPositionLabels}
                   currentIndex={currentPathNodes.length - 1}
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
@@ -8225,6 +8356,7 @@ function App() {
                   </header>
                   <MoveTimesGraph
                     points={moveTimePoints}
+                    positionLabels={graphPositionLabels}
                     currentIndex={currentPathNodes.length - 1}
                     lastPlyIndex={currentLineMoves.length}
                     onNavigate={navigateToGraphPoint}
@@ -8854,17 +8986,26 @@ function App() {
                           ? 'Run a review to see the accuracy for both sides and the moves that turned it.'
                           : 'Start a new game to play again.'}
                       </p>
-                      <div className="inline-actions game-over-actions">
+                      <div className="inline-actions game-over-actions" onFocus={event => keepFocusedControlVisible(event.target)}>
                         {mainLineNodes.length > 1 && (
-                          <button
-                            type="button"
-                            className="btn-primary game-over-review-btn"
-                            onClick={reviewFinishedGame}
-                            disabled={pendingGameReview}
-                            aria-label="Review this finished game"
-                          >
-                            <IconBarChart /> {pendingGameReview ? 'Starting review…' : 'Review this game'}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="btn-primary game-over-review-btn"
+                              onClick={reviewFinishedGame}
+                              disabled={pendingGameReview}
+                            >
+                              <IconBarChart /> {pendingGameReview ? 'Starting review…' : 'Review this game'}
+                            </button>
+                            <button
+                              type="button"
+                              className="game-over-replay-btn"
+                              onClick={replayFinishedGame}
+                              title="Watch the moves from the first position in Analysis"
+                            >
+                              <IconPlay /> Replay game
+                            </button>
+                          </>
                         )}
                         <button
                           type="button"
@@ -8963,11 +9104,9 @@ function App() {
                       />
                       <span>Show board arrow overlays</span>
                     </label>
-                    {/* Hint, Take back and Resign all answer "yours": in a
-                        game between two engines each is disabled for good, and
-                        three dead buttons under a game being watched read as
-                        something that failed to load. */}
-                    {gameMode !== 'ai-vs-ai' && (
+                    {/* Hints use the opponent's engine, which pass-and-play
+                        does not start. Offer the action in the mode that can use it. */}
+                    {gameMode === 'human-vs-ai' && (
                     <div className="inline-actions hint-row">
                       <button
                         type="button"
@@ -9042,7 +9181,7 @@ function App() {
                       engine. Stop joins it while there is a search to stop,
                       including one waiting for that engine to load. */}
                   <div className="inline-actions analysis-actions">
-                    <button type="button" className="btn-primary" aria-label="Run analysis" onClick={runAnalyze}>
+                    <button type="button" className="btn-primary" aria-label="Analyze position" onClick={() => runAnalyze()}>
                       <IconPlay /> Analyze position
                     </button>
                     {(status === 'analyzing' || status === 'loading') && (
@@ -9077,7 +9216,7 @@ function App() {
                   {drillCard}
                   {experienceToggle}
                   {keepSearchingSwitch}
-                  {isCandidateSearch && (
+                  {isCandidateSearch && !drillAwaitingAnswer && (
                     <p className="panel-copy small" role="status" data-testid="candidate-search-notice">
                       Searching only {candidateSearchMoves.map(move => bestMoveLabel(fen, move)).join(', ')}.
                       {' '}Candidate results do not change the position score or game review.
@@ -9155,9 +9294,9 @@ function App() {
                               type="button"
                               className="pv-move"
                               onClick={() => playPvLine(lineFen, source!.pv, step.index)}
-                              onMouseEnter={() => showLinePreview(step)}
+                              onMouseEnter={() => showLinePreview(step, steps)}
                               onMouseLeave={clearLinePreview}
-                              onFocus={() => showLinePreview(step)}
+                              onFocus={() => showLinePreview(step, steps)}
                               onBlur={clearLinePreview}
                               title={`Point at ${step.san} to see the position; click to play the line here`}
                               aria-label={`Play this line up to ${step.numbered}`}
@@ -9183,7 +9322,6 @@ function App() {
                         className="coach-threat-btn"
                         onClick={requestThreat}
                         disabled={isProbingThreat}
-                        aria-label="Show what the opponent is threatening"
                       >
                         <IconAlert /> {isProbingThreat ? 'Reading the threat…' : 'What is threatened?'}
                       </button>
@@ -9285,11 +9423,7 @@ function App() {
                               className="tablebase-move-row"
                               aria-label={tablebaseMoveActionLabel(move)}
                               title={tablebaseMoveActionLabel(move)}
-                              onClick={() => {
-                                setShowAdvancedAnalyze(true)
-                                setActivePreset(null)
-                                setSearchMovesInput(move.uci)
-                              }}
+                              onClick={() => analyzeCandidateMoves([move.uci])}
                             >
                               <strong>{move.san}</strong>
                               <span>{tablebaseMoveSummary(move)}</span>
@@ -9454,7 +9588,7 @@ function App() {
                           Draw {percentage(openingTotals?.draws ?? 0, openingTotalGames).toFixed(1)}% ·
                           Black {percentage(openingTotals?.black ?? 0, openingTotalGames).toFixed(1)}%
                         </p>
-                        {engineBookAgreement !== null && (
+                        {engineBookAgreement !== null && !drillAwaitingAnswer && (
                           <p className="panel-copy small">
                             Engine/book agreement: {engineBookAgreement ? 'yes' : 'no'}{currentEngineBestUci ? ` (${currentEngineBestUci})` : ''}
                           </p>
@@ -9483,11 +9617,7 @@ function App() {
                                     games,
                                     percentage(games, openingTotalGames),
                                   )}
-                                  onClick={() => {
-                                    setShowAdvancedAnalyze(true)
-                                    setActivePreset(null)
-                                    setSearchMovesInput(move.uci)
-                                  }}
+                                  onClick={() => analyzeCandidateMoves([move.uci])}
                                 >
                                   <strong>{move.san}</strong>
                                   <span>{percentage(games, openingTotalGames).toFixed(1)}%</span>
@@ -9497,8 +9627,8 @@ function App() {
                             })}
                           </div>
                         )}
-                        {openingTopMoves.length > 0 && (
-                          <button type="button" onClick={applyBookMovesToSearch}>
+                        {openingTopMoves.length > 0 && !drillAwaitingAnswer && (
+                          <button type="button" onClick={analyzeTopBookMoves}>
                             Analyze top book moves
                           </button>
                         )}
@@ -9548,9 +9678,9 @@ function App() {
                                     type="button"
                                     className="pv-move"
                                     onClick={() => playPvLine(lineFen, line.pv, step.index)}
-                                    onMouseEnter={() => showLinePreview(step)}
+                                    onMouseEnter={() => showLinePreview(step, steps)}
                                     onMouseLeave={clearLinePreview}
-                                    onFocus={() => showLinePreview(step)}
+                                    onFocus={() => showLinePreview(step, steps)}
                                     onBlur={clearLinePreview}
                                     title={`Point at ${step.san} to see the position; click to play the line here`}
                                     aria-label={`Play this line up to ${step.numbered}`}
@@ -9590,12 +9720,9 @@ function App() {
                       disabled={Boolean(reviewGameDisabledReason)}
                       title={reviewGameDisabledReason ?? undefined}
                       aria-label={reviewGameButtonLabel}
+                      onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                     >
-                      {isBatchReviewing ? (
-                        <><IconStop /> Reviewing {batchReviewPercent}%</>
-                      ) : (
-                        <><IconSearch /> Review Game</>
-                      )}
+                      {isBatchReviewing ? <IconStop /> : <IconSearch />} {reviewGameButtonText}
                     </button>
                   </div>
                   {!isMobileLayout && playFromHereRow}
@@ -10050,18 +10177,18 @@ function App() {
                       Searches run until their UCI limit or Stop. Unbounded console searches pause while this tab is hidden and resume when you return. Stop cancels them.
                     </p>
                     {consoleSearchPaused && <p className="panel-copy small" role="status">Console search paused while this tab is hidden.</p>}
-                    {openingExplorer.data && (
+                    {openingExplorer.data && !drillAwaitingAnswer && (
                       <div className="engine-lab-inline">
                         <p className="panel-copy small">
                           Book moves available: {openingExplorer.data.moves.length} · games {openingTotalGames.toLocaleString()}
                         </p>
                         <button
                           type="button"
-                          onClick={applyBookMovesToSearch}
+                          onClick={analyzeTopBookMoves}
                           disabled={openingTopMoves.length === 0}
                           title={openingTopMoves.length === 0 ? 'No book moves are ranked at this position.' : undefined}
                         >
-                          Use top book moves in Analyze
+                          Analyze top book moves
                         </button>
                       </div>
                     )}
@@ -10072,6 +10199,9 @@ function App() {
                     {engineLabError && <p id={engineLabErrorId} className="panel-copy small error-copy" role="alert">{engineLabError}</p>}
                     <form
                       className="engine-lab-console"
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+                      }}
                       onSubmit={(e) => {
                         e.preventDefault()
                         void runLabCommand(engineLabCommand)
@@ -10205,7 +10335,7 @@ function App() {
                       ))}
                     </div>
                     <p className="panel-copy small">
-                      Hash (16–512 MB), MultiPV (1–5), and UCI_ShowWDL share your saved analysis settings. Other options apply to this engine session.
+                      Press Enter or leave a field to apply its value. Hash (16–512 MB), MultiPV (1–5), and UCI_ShowWDL share your saved analysis settings. Other options apply to this engine session.
                       {status === 'analyzing' && ' Locked while a search is running.'}
                     </p>
                   </div>

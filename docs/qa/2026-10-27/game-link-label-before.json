@@ -1,0 +1,12 @@
+[
+  {
+    "state": "ready",
+    "visible": "Copy Game Link",
+    "accessibleName": "Copy a link to this whole game"
+  },
+  {
+    "state": "copied",
+    "visible": "Copied Link",
+    "accessibleName": "Copy a link to this whole game"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "afterSuccessfulFetch": {
+    "source": "Chess.com",
+    "username": "Chess_Reader",
+    "count": "7"
+  },
+  "afterReopen": {
+    "source": "Lichess",
+    "username": "",
+    "count": "10"
+  }
+}

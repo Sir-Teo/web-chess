@@ -118,6 +118,19 @@ const NESTED: Line = [
     'Ba4',
 ]
 
+function deeplyNestedLine(): Line {
+    const chess = new Chess()
+    const branch = (remaining: number): Line => {
+        if (!remaining) return ['b3']
+        const white = chess.turn() === 'w'
+        const home = white ? 'g1' : 'g8'
+        const move = chess.get(home)?.type === 'n' ? (white ? 'Nf3' : 'Nf6') : (white ? 'Ng1' : 'Ng8')
+        chess.move(move)
+        return [white ? 'a3' : 'a6', [[move, ...branch(remaining - 1)]]]
+    }
+    return branch(8)
+}
+
 describe('MoveListTree variations', () => {
     it('draws a variation nested inside a variation, in brackets and numbered', () => {
         const { nodes, rootId } = buildTree(NESTED)
@@ -196,7 +209,26 @@ describe('MoveListTree variations', () => {
 
         // Bc5 follows 5. Nf3 directly and takes no number; the sub-line's
         // first move does, and the one move past it is reported, not dropped.
-        expect(text).toContain('5. Nf3 Bc5 ( 5... Nc6 6. d4 ) +1')
+        expect(text).toContain('5. Nf3 Bc5 ( 5... Nc6 6. d4 ) +1 more')
         expect(html).toContain('aria-current="step"')
+        expect(html).toContain('aria-expanded="false" aria-label="+1 more: expand variation starting with 2. Nc3"')
+    })
+
+    it('keeps the selected move visible past the nesting cap', () => {
+        const { nodes, rootId } = buildTree(deeplyNestedLine())
+        const deepest = findBySan(nodes, 'b3')
+        const html = renderToStaticMarkup(<MoveListTree tree={handle(nodes, rootId, deepest.id)} onNavigate={vi.fn()} />)
+
+        expect(html).toContain(`data-node-id="${deepest.id}"`)
+        expect(html).toContain('aria-current="step"')
+    })
+
+    it('offers an action to open a deeper branch while keeping unselected previews bounded', () => {
+        const { nodes, rootId } = buildTree(deeplyNestedLine())
+        const deepest = findBySan(nodes, 'b3')
+        const html = renderToStaticMarkup(<MoveListTree tree={handle(nodes, rootId)} onNavigate={vi.fn()} />)
+
+        expect(html).not.toContain(`data-node-id="${deepest.id}"`)
+        expect(html).toContain('aria-label="Open deeper line starting with 4. Ng1"')
     })
 })

@@ -4,6 +4,7 @@ import { useModalFocus } from '../hooks/useModalFocus'
 import {
     type LibraryGame,
     type LibrarySort,
+    createLibraryPgn,
     MAX_LIBRARY_NAME_LENGTH,
     MAX_LIBRARY_BACKUP_BYTES,
     MAX_LIBRARY_BACKUP_LENGTH,
@@ -20,6 +21,7 @@ import './NewGameDialog.css'
 import './LibraryDialog.css'
 import { MAX_SEARCH_QUERY_LENGTH } from '../engine/searchTerms'
 import { formatLocalDate } from '../engine/localDate'
+import { readStorage, writeStorage } from '../engine/storage'
 import { isCompositionKey, isPlainShortcut, isTypingTarget } from './shortcutKeys'
 
 type Props = {
@@ -63,10 +65,12 @@ type Props = {
  */
 const PAGE_SIZE = 100
 const PGN_DOWNLOAD_ERROR = 'The browser could not start the PGN download. Try Export PGN again.'
+const MATCHES_DOWNLOAD_ERROR = 'The browser could not start the selection download. Try Export matches again.'
 const BACKUP_DOWNLOAD_ERROR = 'The browser could not start the backup download. Try Export backup again.'
 const backupPartDownloadError = (index: number) => `The browser could not start backup part ${index + 1}. Try that part again.`
 const ROW_BUTTONS = '.library-favorite, .library-row-actions > button'
 const BACKUP_TOO_LARGE_MESSAGE = 'That backup is too large. Import one exported backup part at a time.'
+const LIBRARY_SORT_STORAGE_KEY = 'webchess:library-sort:v1'
 
 const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
     { value: 'recent', label: 'Recent first' },
@@ -109,7 +113,10 @@ export function LibraryDialog({
     const [name, setName] = useState('')
     const [query, setQuery] = useState('')
     const [starredOnly, setStarredOnly] = useState(false)
-    const [sort, setSort] = useState<LibrarySort>('recent')
+    const [sort, setSort] = useState<LibrarySort>(() => {
+        const saved = readStorage(LIBRARY_SORT_STORAGE_KEY)
+        return SORT_OPTIONS.find(option => option.value === saved)?.value ?? 'recent'
+    })
     const [error, setError] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [readingBackup, setReadingBackup] = useState(false)
@@ -119,6 +126,7 @@ export function LibraryDialog({
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
     const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
     const renameInputRef = useRef<HTMLInputElement>(null)
+    const nameInputRef = useRef<HTMLInputElement>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
     const starredFilterRef = useRef<HTMLButtonElement>(null)
     const listRef = useRef<HTMLUListElement>(null)
@@ -153,6 +161,19 @@ export function LibraryDialog({
     const [savedPgn, setSavedPgn] = useState<string | null>(null)
     const savedPgnRef = useRef<string | null>(null)
     const savedNameRef = useRef<string | null>(null)
+    const savedGameIdRef = useRef<string | null>(null)
+    const forgetSavedGame = useCallback(() => {
+        savedGameIdRef.current = null
+        savedPgnRef.current = null
+        savedNameRef.current = null
+        setSavedPgn(null)
+    }, [])
+    useLayoutEffect(() => {
+        // A completed write refreshes records deleted by another tab. Keep
+        // the immediate duplicate guard while a save is still pending.
+        const id = savedGameIdRef.current
+        if (loaded && !saving && id && !games.some(game => game.id === id)) forgetSavedGame()
+    }, [games, loaded, saving, forgetSavedGame])
     const panelRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const titleId = useId()
@@ -226,6 +247,7 @@ export function LibraryDialog({
         setRenaming(null)
         setSort(next)
         setVisibleLimit(PAGE_SIZE)
+        writeStorage(LIBRARY_SORT_STORAGE_KEY, next)
     }
 
     const focusRowAction = (row: Element | undefined, actionIndex: number) => {
@@ -277,6 +299,7 @@ export function LibraryDialog({
         if (!currentPgn || !loaded) return
         const typedName = name.trim()
         if (savedPgnRef.current === currentKey && (!typedName || savedNameRef.current === typedName)) return
+        nameInputRef.current?.focus()
         // An empty field saves under the name the field is showing: the
         // placeholder is the app's suggestion, and it knows the opening,
         // which the save path does not.
@@ -285,6 +308,7 @@ export function LibraryDialog({
         if (result.ok) {
             savedPgnRef.current = currentKey
             savedNameRef.current = typedName
+            savedGameIdRef.current = result.game?.id ?? null
             setSavedPgn(currentKey)
             setName('')
         }
@@ -320,20 +344,21 @@ export function LibraryDialog({
 
     const today = () => formatLocalDate()
 
-    const handleExportPgn = () => {
+    const handleExportPgn = (matchesOnly = false) => {
         try {
-            const text = onExportPgn()
+            const text = matchesOnly ? createLibraryPgn(visible) : onExportPgn()
             if (!text) {
                 setStatus(null)
-                setError('There is nothing in the library to export yet.')
+                setError(matchesOnly ? 'There are no matching games to export.' : 'There is nothing in the library to export yet.')
                 return
             }
-            download(text, `web-chess-library-${today()}.pgn`, 'application/x-chess-pgn')
+            download(text, `web-chess-library-${matchesOnly ? 'matches-' : ''}${today()}.pgn`, 'application/x-chess-pgn')
             setError(null)
-            setStatus(`Exported ${stats.count} ${stats.count === 1 ? 'game' : 'games'} as PGN.`)
+            const count = matchesOnly ? visible.length : stats.count
+            setStatus(`Exported ${count}${matchesOnly ? ' matching' : ''} ${count === 1 ? 'game' : 'games'} as PGN.`)
         } catch {
             setStatus(null)
-            setError(PGN_DOWNLOAD_ERROR)
+            setError(matchesOnly ? MATCHES_DOWNLOAD_ERROR : PGN_DOWNLOAD_ERROR)
         }
     }
 
@@ -434,6 +459,7 @@ export function LibraryDialog({
                             }}>
                                 <input
                                     id={nameId}
+                                    ref={nameInputRef}
                                     data-library-name
                                     type="text"
                                     value={name}
@@ -533,7 +559,7 @@ export function LibraryDialog({
                                     data-library-game-id={game.id}
                                     onKeyDown={event => {
                                         if (isCompositionKey(event.nativeEvent)) return
-                                        if (event.key === 'Escape' && renaming?.id === game.id) {
+                                        if (event.key === 'Escape' && isPlainShortcut(event.nativeEvent) && renaming?.id === game.id) {
                                             event.preventDefault()
                                             event.stopPropagation()
                                             finishRenaming()
@@ -590,6 +616,9 @@ export function LibraryDialog({
                                                 setRenaming({ id: game.id, name: game.name })
                                             }}
                                             aria-expanded={renaming?.id === game.id}
+                                            onKeyDown={event => {
+                                                if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+                                            }}
                                             aria-controls={renaming?.id === game.id ? renameId : undefined}
                                             aria-label={`Rename ${game.name}`}
                                             title="Rename"
@@ -616,6 +645,9 @@ export function LibraryDialog({
                                                         next?.focus()
                                                     })
                                                     onDelete(game.id)
+                                                    if (savedGameIdRef.current === game.id) {
+                                                        forgetSavedGame()
+                                                    }
                                                     setConfirmingDelete(null)
                                                     if (renaming?.id === game.id) setRenaming(null)
                                                 }}
@@ -638,7 +670,9 @@ export function LibraryDialog({
                                         )}
                                     </div>
                                     {renaming?.id === game.id && (
-                                        <form id={renameId} className="library-rename" onSubmit={event => {
+                                        <form id={renameId} className="library-rename" onKeyDown={event => {
+                                            if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+                                        }} onSubmit={event => {
                                             event.preventDefault()
                                             if (!renaming.name.trim()) return
                                             onRename(game.id, renaming.name.trim())
@@ -694,6 +728,17 @@ export function LibraryDialog({
                                 </>}
                             </p>}
                         </div>
+                        {loaded && games.length > 0 && (starredOnly || query.trim()) && (
+                            <button type="button" className="btn-cancel library-export-matches"
+                                disabled={visible.length === 0}
+                                title={visible.length
+                                    ? `Download all ${visible.length} matching ${visible.length === 1 ? 'game' : 'games'} as a PGN database`
+                                    : 'No matching games to export.'}
+                                aria-describedby={error === MATCHES_DOWNLOAD_ERROR ? errorId : `${searchId}-results`}
+                                onClick={() => handleExportPgn(true)}>
+                                <IconDownload /> Export matches ({visible.length})
+                            </button>
+                        )}
                     </div>
 
                     {!storageIsDurable && (
@@ -756,7 +801,7 @@ export function LibraryDialog({
                     <button
                         type="button"
                         className="btn-cancel"
-                        onClick={handleExportPgn}
+                        onClick={() => handleExportPgn()}
                         aria-describedby={error === PGN_DOWNLOAD_ERROR ? errorId : undefined}
                         disabled={!games.length}
                         title={games.length

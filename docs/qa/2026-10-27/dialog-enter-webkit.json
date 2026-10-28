@@ -1,0 +1,33 @@
+{
+  "browser": "webkit",
+  "before": {
+    "scenario": "commands",
+    "afterFirst": {
+      "tag": "INPUT",
+      "label": "Search commands"
+    },
+    "afterRepeat": {
+      "tag": "BUTTON",
+      "label": "Human vs Human: Pass & play on the same device"
+    },
+    "commandsOpen": 0,
+    "newGameOpen": 1,
+    "recentCommands": [
+      "new-game"
+    ]
+  },
+  "after": {
+    "scenario": "commands",
+    "afterFirst": {
+      "tag": "INPUT",
+      "label": "Search commands"
+    },
+    "afterRepeat": {
+      "tag": "INPUT",
+      "label": "Search commands"
+    },
+    "commandsOpen": 1,
+    "newGameOpen": 0,
+    "recentCommands": []
+  }
+}

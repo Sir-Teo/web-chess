@@ -1,0 +1,37 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 198 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-CJ3KvK4I.css              135.42 kB │ gzip:  25.17 kB
+dist/assets/NewGameDialog-BH8GoMw-.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-DsLUj1bs.js        16.08 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-B5GijXc9.js            33.34 kB │ gzip:  11.13 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-IYH6gP9Z.js               421.98 kB │ gzip: 136.30 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.73s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  clock controls (1280×900, 1x, dark, mouse): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (375×812, 1x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (320×812, 2x, dark, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  clock controls (844×390, 2x, light, coarse pointer): visible Pause/Resume, exact held banks, focused Space/Enter activation, turn-correct ticking, move restarts, Analysis hiding, flagged/untimed exclusion, replay coexistence and fitting/contrast pass
+  watch title (1280×900, 1x, slow-boot): loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (1280×900, 1x, silent-all): failed startup reports unavailable without inventing a move
+  watch title (320×480, 2x, slow-boot): loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (320×480, 2x, silent-all): failed startup reports unavailable without inventing a move
+Focused browser UI checks passed.

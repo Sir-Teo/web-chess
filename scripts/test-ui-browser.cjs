@@ -350,6 +350,7 @@ const SCENARIO = ${JSON.stringify(scenario)};
         this.send('option name UCI_ShowWDL type check default false');
         if (SCENARIO === 'console-search' && window.__testSpinOptions) this.send('option name Move Overhead type spin default 10 min 0 max 5000');
         if (SCENARIO === 'console-search' && window.__testConfigurationOptions) this.send('option name Clear Hash type button');
+        if (SCENARIO === 'console-search' && window.__testTextOptions) this.send('option name EvalFile type string default default.nnue');
         this.send('uciok');
         return;
       }
@@ -499,7 +500,7 @@ async function checkHiddenAnalysisPausesAndResumes(browser) {
     // and a click on it waits for a visibility that never comes. Escape closes
     // every overlay in the app at every breakpoint.
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.getByRole('button', { name: 'Analyze position' }).click()
     // Replacing the held auto search costs one stop of its own; the infinite
     // search is the second go.
     await page.waitForFunction(() => (window.__uciCommands || []).filter(c => c.startsWith('go')).length === 2,
@@ -682,9 +683,66 @@ async function checkBishopEntryGuidance(browser) {
   }
 }
 
+async function checkBishopRankEntry(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const input = page.locator('.move-entry input')
+      const load = async fen => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(`[SetUp "1"]\n[FEN "${fen}"]\n\n*`)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        if (!await page.locator('.move-entry').evaluate(e => e.open)) await page.locator('.move-entry summary').click()
+      }
+      const white = '8/7k/8/8/8/2B5/8/1NB4K w - - 0 1'
+      for (const [fen, san, source, destination, knight, piece] of [
+        [white, 'B1d2', 'c1', 'd2', 'b1', 'w'],
+        ['1nb4k/8/2b5/8/8/8/7K/8 b - - 0 1', 'B8d7', 'c8', 'd7', 'b8', 'b'],
+      ]) {
+        await load(fen)
+        await input.fill(san)
+        await input.press('Enter')
+        await page.locator(`#chessboard-square-${destination} [data-piece="${piece}B"]`).waitFor()
+        assert(await page.locator(`#chessboard-square-${knight} [data-piece="${piece}N"]`).count() === 1, `${san} moved the knight instead of the bishop`)
+        assert(await page.locator(`#chessboard-square-${source} [data-piece]`).count() === 0, `${san} left its bishop on the source square`)
+        assert((await page.locator('.mtree-chip[aria-current]').getAttribute('aria-label')).includes(san), 'the transcript recorded the wrong piece move')
+        assert(await input.inputValue() === '' && await input.evaluate(e => e === document.activeElement), 'a valid bishop move did not clear the draft and retain focus')
+      }
+      for (const coordinate of ['b1d2', 'B1D2', 'B1-d2']) {
+        await load(white)
+        await input.fill(coordinate)
+        await input.press('Enter')
+        await page.locator('#chessboard-square-d2 [data-piece="wN"]').waitFor()
+        assert(await page.locator('#chessboard-square-c1 [data-piece="wB"]').count() === 1, `${coordinate} no longer uses explicit coordinates`)
+      }
+      await load('8/7k/8/8/8/2B5/8/1N5K w - - 0 1')
+      await input.fill('B1d2')
+      await input.press('Enter')
+      await page.locator('.move-entry [role="alert"]').waitFor()
+      assert(await input.inputValue() === 'B1d2' && await input.evaluate(e => e === document.activeElement), 'illegal bishop notation lost its editable draft or focus')
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-b1 [data-piece="wN"]').count() === 1, 'illegal bishop notation played a different legal move')
+      await page.screenshot({ path: `/tmp/web-chess-bishop-rank-${browser.browserType().name()}-${width}.png`, fullPage: true })
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'the move-entry error overflows the document')
+      await input.fill('b1d2')
+      await input.press('Enter')
+      await page.locator('#chessboard-square-d2 [data-piece="wN"]').waitFor()
+      assert(await page.locator('.move-entry [role="alert"]').count() === 0, 'the corrected coordinate move retained an obsolete error')
+      assert(errors.length === 0, `bishop rank entry errors: ${errors.join('; ')}`)
+      console.log(`  bishop rank entry (${width}×${height}, ${scale}x, ${theme}): White/Black SAN moves the named bishop and retains the knight; explicit coordinates still move the knight; illegal SAN keeps the board, draft and focus for correction`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkTypedMoveEntry(browser) {
   for (const [width, theme] of [[1280, 'Dark'], [375, 'Dark'], [1280, 'Light'], [375, 'Light']]) {
-    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const context = await browser.newContext({ viewport: { width, height: 812 }, hasTouch: width < 900 })
     const page = await context.newPage()
     try {
       await page.addInitScript(fakeEngineScript())
@@ -702,8 +760,9 @@ async function checkTypedMoveEntry(browser) {
       await guide.locator('summary').click()
       await page.locator('.move-entry summary').click()
       const input = page.locator('.move-entry input')
+      const submit = page.locator('.move-entry').getByRole('button', { name: 'Play move', exact: true })
       await input.fill('e4')
-      await input.press('Enter')
+      if (width < 900) await submit.tap(); else await submit.click()
       await waitForBoardPiece(page, 'e4', 'White pawn')
       assert(await input.evaluate(el => document.activeElement === el), 'typing a move lost input focus')
       assert(await input.inputValue() === '', 'the previous move remained in the input')
@@ -711,17 +770,19 @@ async function checkTypedMoveEntry(browser) {
       await input.press('Enter')
       await waitForBoardPiece(page, 'e5', 'Black pawn')
       await input.fill('e5')
-      await input.press('Enter')
+      if (width < 900) await submit.tap(); else await submit.click()
       assert(await page.locator('.move-entry [role="alert"]').count() === 1, 'illegal input was not explained')
+      assert(await input.evaluate(el => el === document.activeElement) && await input.inputValue() === 'e5', 'invalid button submission lost its focused correction draft')
       assert((await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel)).includes('White pawn'), 'illegal input changed the board')
       await input.fill('Nf3')
       await input.press('Enter')
       await waitForBoardPiece(page, 'f3', 'White knight')
       await input.fill('Nc6')
-      await input.press('Enter')
+      await submit.focus(); await submit.press('Enter')
       await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+      assert(await input.evaluate(el => el === document.activeElement), 'button Enter did not return to the move field')
       await input.fill('bc4')
-      await input.press('Enter')
+      await submit.focus(); await submit.press('Space')
       await page.locator('#chessboard-square-c4 [data-piece="wB"]').waitFor()
       assert(await input.evaluate(el => document.activeElement === el), 'lowercase bishop entry lost input focus')
       await input.fill('b5')
@@ -741,7 +802,7 @@ async function checkTypedMoveEntry(browser) {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded move input overflows')
       assert(await input.evaluate(el => el.getBoundingClientRect().height >= 44), 'move input is shorter than its touch target')
       await assertContrast(page, `${theme} / expanded move entry / ${width}px`, 15)
-      console.log(`  typed moves (${width}px, ${theme}): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK`)
+      console.log(`  typed moves (${width}px, ${theme}): click/tap/button Enter/Space return to input; rejected draft stays focused; SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction and navigation OK`)
     } finally { await context.close() }
   }
 }
@@ -937,7 +998,7 @@ async function checkQueuedAnalysisSurvivesFallback(browser) {
           await page.waitForFunction(({ from, to, piece }) => !document.querySelector(`#chessboard-square-${from} [data-piece]`)
             && document.querySelector(`#chessboard-square-${to} [data-piece="${piece}"]`), { from, to, piece })
         }
-        const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const run = page.getByRole('button', { name: 'Analyze position', exact: true })
         if (manual) {
           await play('e2', 'e4', 'wP'); await play('e7', 'e5', 'bP'); await play('g1', 'f3', 'wN')
           await run.click()
@@ -1120,7 +1181,7 @@ async function checkEngineRetry(browser, { viaCommand = false, layouts = [[1280,
         }
         const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
         const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
-        const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const run = page.getByRole('button', { name: 'Analyze position', exact: true })
         const reading = page.locator('.coach-grid > div').first().locator('strong')
         let retainedReading = null
         if (kind !== 'boot') {
@@ -1385,7 +1446,7 @@ async function checkLabSettingsStayInSync(browser) {
         return settings.hashMb === 72 && settings.multiPv === 3 && settings.showWdl === false
       })
       await page.getByRole('button', { name: 'Analyze', exact: true }).first().click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__uciCommands.some(command => command.startsWith('go ')))
       const commands = await page.evaluate(() => window.__uciCommands)
       for (const [name, value] of [['Hash', '72'], ['MultiPV', '3'], ['UCI_ShowWDL', 'false']]) {
@@ -1488,15 +1549,85 @@ async function checkCoachUsesPositionScore(browser) {
 }
 
 /**
- * The engine's last word before a stop is a bound, not a value.
- *
- * `score cp 900 lowerbound` means "at least 900", and it arrives from an
- * aspiration re-search with more nodes behind it than the exact line it
- * follows. The app used to compare the two on node count and keep the bound,
- * so a position evaluated at +3 was displayed at +9. This drives that exact
- * sequence through the real UI, which is the thing a unit test on the
- * comparison function cannot do.
+ * "Analyze" in a book control is an action, including with Auto-analyze off
+ * or the engine released. The candidate field alone cannot demonstrate it:
+ * assert the search dispatched to the worker and the visible result instead.
  */
+async function checkBookMoveAnalysisActions(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [375, 812, 1], [320, 812, 2], [844, 390, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(lichessServiceScript({
+        host: 'explorer.lichess.org',
+        body: JSON.stringify({ white: 100, draws: 20, black: 30, moves: [
+          { uci: 'e2e4', san: 'e4', white: 60, draws: 10, black: 10 },
+          { uci: 'd2d4', san: 'd4', white: 30, draws: 5, black: 10 },
+          { uci: 'g1f3', san: 'Nf3', white: 10, draws: 5, black: 10 },
+        ] }),
+      }))
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'analyze', autoAnalyze: false,
+        engineProfile: 'lite-single-local', showAdvancedAnalyze: false,
+        analyzeMode: 'deep', searchDepth: 18, limitNodes: 750000,
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.locator('#chessboard-square-e2 [data-piece="wP"]').waitFor()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await openSettings(page)
+      await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
+      const advanced = page.getByLabel('Advanced search limits', { exact: true })
+      await advanced.check()
+      await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
+      await advanced.uncheck()
+      await closeSettings(page)
+      await page.getByLabel('Lichess API token', { exact: true }).fill('book-action-fixture')
+      const row = page.locator('.opening-move-row').first()
+      await row.waitFor()
+      const board = await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel)
+      const evaluateSelection = async (button, moves) => {
+        const before = await page.evaluate(() => window.__uciCommands.filter(c => c.startsWith('go ')).length)
+        await button.focus()
+        await button.press('Enter')
+        await page.waitForFunction(({ moves, before }) => {
+          const sent = window.__uciCommands.filter(c => c.startsWith('go '))
+          return sent.length > before && sent.at(-1).endsWith(`searchmoves ${moves}`)
+        }, { moves, before })
+        await page.getByTestId('candidate-search-notice').waitFor()
+        await page.waitForFunction(() => !document.querySelector('.analysis-stop'))
+        const sent = await page.evaluate(() => window.__uciCommands.filter(c => c.startsWith('go ')))
+        assert(sent.length === before + 1 && sent.at(-1).includes('depth 18') && sent.at(-1).includes('nodes 750000') && sent.at(-1).endsWith(`searchmoves ${moves}`),
+          `book selection did not start exactly one search with the current limits and selected candidates: ${JSON.stringify(sent)}`)
+        assert(await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel) === board, 'analyzing a book move played it')
+        assert((await page.getByRole('button', { name: 'Analyze', exact: true }).getAttribute('class')).includes('active'), 'book analysis did not reveal Analyze')
+        assert((await page.getByTestId('candidate-search-notice').innerText()).includes('e4'), 'book analysis did not disclose the restriction')
+        await page.waitForFunction(() => {
+          const button = document.querySelector('.analysis-actions .btn-primary')
+          const r = button.getBoundingClientRect()
+          return [r.top + 2, r.bottom - 2].every(y => button.contains(document.elementFromPoint(r.x + r.width / 2, y)))
+        })
+        assert(await page.getByRole('button', { name: 'Analyze position', exact: true }).evaluate(el => el === document.activeElement), 'book analysis left keyboard focus behind its results')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'book analysis overflows the page')
+      }
+      await evaluateSelection(row, 'e2e4')
+      await evaluateSelection(page.getByRole('button', { name: 'Analyze top book moves', exact: true }), 'e2e4 d2d4 g1f3')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      const draft = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      await draft.fill('isready')
+      await page.getByRole('button', { name: 'Release engine', exact: true }).click()
+      await page.getByRole('button', { name: 'Load engine', exact: true }).waitFor()
+      await evaluateSelection(page.getByRole('button', { name: 'Analyze top book moves', exact: true }), 'e2e4 d2d4 g1f3')
+      await openSettings(page)
+      assert(await page.getByLabel('Candidate moves', { exact: true }).inputValue() === 'e2e4 d2d4 g1f3', 'book selection left a stale candidate draft')
+      await closeSettings(page)
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      assert(await draft.inputValue() === 'isready', 'book analysis erased an unsent console command')
+      console.log(`  book analysis (${width}x${height}, ${scale}x): row/top moves search once, replace stale candidates, retain limits/board/draft, wake a released engine and reveal results`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkCandidateSearchKeepsPositionScore(browser) {
   for (const [width, knownPosition] of [[1280, true], [375, true], [375, false]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 } })
@@ -1509,7 +1640,7 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       if (knownPosition) {
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => document.querySelector('.eval-bar-label')?.textContent.includes('+0.4'))
       }
       const original = await page.locator('.coach-grid > div').first().locator('strong').innerText()
@@ -1517,7 +1648,7 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
       await page.getByLabel('Candidate moves', { exact: true }).fill('f3')
       await closeSettings(page)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__uciCommands.some(c => c.includes('searchmoves f2f3')))
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D30'))
       assert(await page.locator('.coach-grid > div').first().locator('strong').innerText() === original,
@@ -1534,7 +1665,7 @@ async function checkCandidateSearchKeepsPositionScore(browser) {
       await page.locator('.advanced-settings > summary').filter({ hasText: 'Advanced engine options' }).click()
       await page.getByLabel('Candidate moves', { exact: true }).fill('')
       await closeSettings(page)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D22'))
       assert(await page.getByTestId('candidate-search-notice').count() === 0, 'an unrestricted search inherited the last candidate restriction')
       assert((await page.locator('.coach-grid > div').first().locator('strong').innerText()) === '+0.35',
@@ -1555,7 +1686,7 @@ async function checkEvaluationEngineProvenance(browser) {
         engineProfile: 'lite-single-local', analyzeMode: 'deep',
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D30'))
       const source = page.getByTestId('position-engine-source')
       assert((await source.innerText()).includes('QA Lite · Lite Single (Local) · build '), 'live analysis lost its actual worker identity')
@@ -1563,7 +1694,7 @@ async function checkEvaluationEngineProvenance(browser) {
       await page.getByLabel('Engine profile in Engine Lab').selectOption('full-single-cdn')
       await page.waitForFunction(() => window.__engineCount === 2)
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D22'))
       assert((await source.innerText()).includes('QA Lite') && (await source.innerText()).includes('different engine profile'),
         'switching engines relabelled the retained reading as the current engine')
@@ -1572,7 +1703,7 @@ async function checkEvaluationEngineProvenance(browser) {
       await page.getByRole('button', { name: 'Review', exact: true }).click()
       assert((await page.getByTestId('review-engine-source').innerText()).includes('QA Lite'), 'review labels the source from the engine selector')
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.coach-line-source')?.textContent.includes('D34'))
       /*
        * Wait for the label this asserts about, not for a different element
@@ -1616,14 +1747,14 @@ async function checkPvPreviewAndCommit(browser) {
         workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, analyzeMode: 'deep',
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const second = page.locator('.coach-line-moves .pv-move').nth(1)
       await second.waitFor()
       await second.focus()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).focus()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).focus()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e7 [data-piece="bP"]'))
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__uciBestmoves >= 2)
       await second.click()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e5 [data-piece="bP"]'))
@@ -1633,6 +1764,98 @@ async function checkPvPreviewAndCommit(browser) {
       const moves = exported.replace(/\[[^\]]*\]|\{[^}]*\}/g, '').replace(/\s+/g, ' ')
       assert(/1\. e4\s+(?:1\.\.\. )?e5/.test(moves), `preview did not commit the complete line: ${moves}`)
       console.log(`  PV reuse (${width}px): focus previews and restores the board; repeated search keeps the line clickable; export contains both committed plies`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkReviewActionNames(browser) {
+  for (const [width, height, scale, experience, theme] of [
+    [1280, 900, 1, 'pro', 'dark'], [375, 812, 1, 'beginner', 'light'],
+    [320, 812, 2, 'pro', 'light'], [844, 390, 2, 'beginner', 'dark'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(({ experience, theme }) => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: experience, engineProfile: 'lite-single-local',
+          autoAnalyze: false, reviewMaxWorkers: 1, theme,
+        }))
+      }, { experience, theme })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. f3 e5 2. g4 Qh4# 0-1')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const boardBefore = await page.locator('#chessboard-square-h4').evaluate(readBoardSquareLabel)
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      const offer = page.getByRole('button', { name: 'Review this game', exact: true })
+      assert((await offer.textContent()).trim() === 'Review this game', 'the finished-game action does not answer to its printed name')
+      await page.evaluate(() => { window.__withholdEngineInfo = true })
+      await offer.focus()
+      await offer.press('Enter')
+      const stop = page.getByRole('button', { name: /^Stop review \(\d+%\)/ })
+      const start = page.getByRole('button', { name: 'Review Game', exact: true })
+      await stop.waitFor()
+      await page.waitForFunction(() => document.activeElement === document.getElementById('analysis-panel'))
+      await page.waitForFunction(() => window.__consoleEngine?.searching)
+      const checkName = async () => {
+        const text = (await stop.textContent()).trim()
+        assert((await stop.getAttribute('aria-label')).startsWith(text + '.'), 'the running review action omits its printed label or percentage')
+        assert((await stop.getAttribute('aria-label')).includes('positions reviewed'), 'the running review lost its detailed progress')
+        await stop.focus()
+        const fit = await stop.evaluate(el => {
+          const rect = el.getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(el)
+          return rect.width >= 44 && rect.height >= 32 && rect.left >= -1 && rect.right <= innerWidth + 1
+            && [...range.getClientRects()].every(r => r.left >= rect.left - 1 && r.right <= rect.right + 1)
+            && document.documentElement.scrollWidth <= innerWidth + 1
+        })
+        assert(fit, 'the running review action clips its label or overflows the viewport')
+        return text
+      }
+      const firstLabel = await checkName()
+      await page.evaluate(() => { window.__consoleEngine.emitInfo(); window.__consoleEngine.finishSearch() })
+      await page.waitForFunction(text => document.querySelector('.batch-review-btn')?.textContent.trim() !== text, firstLabel)
+      await page.waitForFunction(() => window.__consoleEngine?.searching)
+      await checkName()
+
+      // Holding one key must neither cancel the review just started nor start
+      // a new review immediately after stopping it.
+      await page.keyboard.down('Enter')
+      await start.waitFor()
+      const countAfterStop = await page.evaluate(() => window.__uciCommands.filter(text => /^go\b/.test(text)).length)
+      await page.keyboard.down('Enter')
+      await page.keyboard.down('Enter')
+      assert(await start.isVisible() && await page.evaluate(() => window.__uciCommands.filter(text => /^go\b/.test(text)).length) === countAfterStop,
+        'a held stop key restarted the review')
+      await page.keyboard.up('Enter')
+      await start.focus()
+      await page.keyboard.down('Enter')
+      await stop.waitFor()
+      await page.waitForFunction(count => window.__uciCommands.filter(text => /^go\b/.test(text)).length > count, countAfterStop)
+      await page.keyboard.down('Enter')
+      assert(await stop.isVisible(), 'a held start key canceled the new review')
+      await page.keyboard.up('Enter')
+      await stop.click()
+      await start.waitFor()
+
+      await page.evaluate(() => { window.__withholdEngineInfo = false })
+      await start.click()
+      await start.waitFor()
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await page.locator('#chessboard-square-h4').evaluate(readBoardSquareLabel) === boardBefore, 'review actions changed the selected board position')
+      if (width > 900) {
+        const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
+        await analyzeTab.focus()
+        await analyzeTab.press('Enter')
+        assert(await analyzeTab.evaluate(el => el === document.activeElement), 'a desktop analysis reveal moved focus away from the chosen tab')
+      }
+      console.log(`  review actions (${width}×${height}, ${scale}x, ${experience}, ${theme}): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board`)
     } finally { await context.close() }
   }
 }
@@ -1981,6 +2204,58 @@ async function checkReviewListFollowsPosition(browser) {
       await expectSelectionVisible()
       assert((await list.locator('[aria-current="true"]').textContent()).includes('Nbd7'), 'End did not reveal the final reviewed move')
       console.log(`  review list (${width}px, ${scale}x): selected moves follow buttons/keys, root resets, outer scroll/focus stays put, and new readings preserve manual scrolling`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkReviewFilterScroll(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+      })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill(SAMPLE_PGN)
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await page.getByRole('button', { name: /^review game$/i }).click()
+      await page.waitForFunction(() => /Pending 0/.test(document.querySelector('.review-chips')?.textContent || ''))
+      const list = page.locator('.review-move-list')
+      const first = await list.getByRole('button').first().getAttribute('aria-label')
+      const selected = await list.locator('[aria-current="true"]').getAttribute('aria-label')
+      const board = () => page.locator('[id^="chessboard-square-"]').evaluateAll(squares => squares.map(square =>
+        `${square.id}:${square.querySelector('[data-piece]')?.getAttribute('data-piece') || ''}`).join('|'))
+      const originalBoard = await board()
+      const selectedVisible = () => page.waitForFunction(() => {
+        const list = document.querySelector('.review-move-list'), selected = list?.querySelector('[aria-current="true"]')
+        if (!selected) return false
+        const a = list.getBoundingClientRect(), b = selected.getBoundingClientRect()
+        return b.top >= a.top - 1 && b.bottom <= a.bottom + 1
+      })
+      await list.evaluate(el => { el.scrollTop = el.scrollHeight })
+      const opening = page.getByRole('button', { name: /^Opening\./ })
+      await opening.focus(); await opening.press('Enter')
+      await page.waitForFunction(() => document.querySelector('.review-move-list')?.scrollTop === 0)
+      assert(await list.locator('[aria-current]').count() === 0 && await list.getByRole('button').first().getAttribute('aria-label') === first, 'the Opening filter did not show its first move')
+      assert(await opening.evaluate(el => el === document.activeElement) && await board() === originalBoard, 'filtering moved focus or changed the board')
+      const endgame = page.getByRole('button', { name: /^Endgame\./ })
+      await endgame.focus(); await endgame.press('Enter')
+      await selectedVisible()
+      assert(await list.locator('[aria-current="true"]').getAttribute('aria-label') === selected, 'the Endgame filter lost the selected move')
+      assert(await endgame.evaluate(el => el === document.activeElement), 'revealing a filtered review move stole focus')
+      await endgame.press('Enter')
+      await selectedVisible()
+      assert(await endgame.getAttribute('aria-pressed') === 'false' && await board() === originalBoard, 'returning to the whole line changed the board or filter state')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'review filters overflow the document')
+      assert(errors.length === 0, `review filter errors: ${errors.join('; ')}`)
+      console.log(`  review filter scroll (${width}px, ${scale}x, ${theme}): Opening starts at its first result when the board move is excluded; Endgame and the whole line reveal the same selected move without moving focus or changing the board`)
     } finally { await context.close() }
   }
 }
@@ -2505,6 +2780,23 @@ async function checkSavedReviewDeleteFocus(browser) {
   }
 }
 
+async function assertRenameBrowserChords(input, draft) {
+  await input.press('Shift+Escape')
+  assert(await input.isVisible() && await input.inputValue() === draft, 'native Shift+Escape discarded a rename draft')
+  const ignored = await input.evaluate(el => {
+    const value = el.value, start = el.selectionStart, end = el.selectionEnd
+    return [
+      { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { isComposing: true }, { keyCode: 229 },
+    ].map(init => {
+      const event = new KeyboardEvent('keydown', { ...init, key: 'Escape', bubbles: true, cancelable: true })
+      el.dispatchEvent(event)
+      return !event.defaultPrevented && document.activeElement === el && el.value === value
+        && el.selectionStart === start && el.selectionEnd === end
+    })
+  })
+  assert(ignored.every(Boolean), 'modified/composing Escape changed the rename draft, focus or selection')
+}
+
 async function checkSavedReviewRenaming(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -2545,12 +2837,17 @@ async function checkSavedReviewRenaming(browser) {
       await choice.selectOption(original.id)
       const trigger = panel.getByRole('button', { name: 'Rename saved review', exact: true })
       const input = panel.getByRole('textbox', { name: 'Saved review name', exact: true })
-      await trigger.click()
+      await trigger.focus()
+      await page.keyboard.down('Enter')
+      await input.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
       assert(await input.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length),
         'renaming did not select the current review title')
       await input.fill('   ')
       assert(await panel.getByRole('button', { name: 'Save name', exact: true }).isDisabled(), 'a blank review title can be saved')
       await input.fill('Cancel this draft')
+      await assertRenameBrowserChords(input, 'Cancel this draft')
       await input.dispatchEvent('keydown', { key: 'Escape', code: 'Escape', isComposing: true })
       assert(await input.isVisible(), 'composing Escape discarded a review-name draft')
       await input.press('Escape')
@@ -2569,9 +2866,22 @@ async function checkSavedReviewRenaming(browser) {
       await input.scrollIntoViewIfNeeded()
       await page.screenshot({ path: `/tmp/web-chess-review-name-${width}.png` })
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
-      await input.press('Enter')
+      const composingEnter = await input.evaluate(el => {
+        const event = new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      })
+      assert(composingEnter && await input.inputValue() === title, 'composing Enter can save a review name')
+      await input.focus()
+      await page.keyboard.down('Enter')
       await panel.getByText('Saved review renamed.', { exact: true }).waitFor()
       await page.waitForFunction(() => document.activeElement?.textContent === 'Rename saved review')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await input.count() === 0 && await trigger.evaluate(el => el === document.activeElement), 'held Enter reopened the saved-review name editor')
+      await trigger.press('Enter')
+      assert(await input.inputValue() === title, 'a fresh Enter did not reopen the renamed review')
+      await input.press('Escape')
       assert((await choice.locator('option:checked').innerText()).includes(title), 'the renamed run is not selected')
       const stored = await page.evaluate(() => new Promise((resolve, reject) => {
         const request = indexedDB.open('web-chess-reviews', 1)
@@ -2650,7 +2960,7 @@ async function checkSavedReviewRenaming(browser) {
       await panel.locator('summary').click()
       await panel.locator('summary').click()
       await page.waitForFunction(() => document.querySelectorAll('#saved-review-choice option').length === 49)
-      console.log(`  review naming (${width}px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
+      console.log(`  review naming (${width}px): selected draft/plain Escape cancel, browser/composing Escape preserved, held/composing Enter, fresh reopen, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery`)
     } finally { await context.close() }
   }
 }
@@ -2933,6 +3243,129 @@ async function checkReviewBranchNames(browser) {
       assert(gameFile.suggestedFilename() === 'king-s-knight-opening-2021-12-03.pgn', 'the whole-game filename lost its main-line identity')
       assert(/\b1\.\s+e4\b/.test(fs.readFileSync(await gameFile.path(), 'utf8')), 'the whole-game export lost its main line')
       console.log(`  review names (${width}px): saved title and dated download follow the reviewed Queen's Gambit branch after stepping back; whole-game export retains the King's Knight main line`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkReviewStorageFocus(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false,
+          engineProfile: 'lite-single-local', reviewMaxWorkers: 1, theme,
+        }))
+        const open = IDBFactory.prototype.open
+        IDBFactory.prototype.open = function (name, ...args) {
+          if (name === 'web-chess-reviews' && window.__failReviewFocusSave) {
+            window.__failReviewFocusSave = false
+            throw new Error('QA review save failed. Try again.')
+          }
+          const request = open.call(this, name, ...args)
+          if (name === 'web-chess-reviews' && window.__holdReviewFocusSave) {
+            window.__holdReviewFocusSave = false
+            Object.defineProperty(request, 'onsuccess', { set(handler) {
+              request.addEventListener('success', event => { window.__releaseReviewFocusSave = () => handler.call(request, event) })
+            } })
+          }
+          return request
+        }
+        const Worker = window.Worker
+        window.Worker = function (url, options) {
+          const worker = new Worker(url, options)
+          if (String(url).includes('reviewBackupWorker')) Object.defineProperty(worker, 'onmessage', { set(handler) {
+            worker.addEventListener('message', event => {
+              if (window.__holdReviewFocusBackup) {
+                window.__holdReviewFocusBackup = false
+                window.__releaseReviewFocusBackup = () => { window.__releaseReviewFocusBackup = null; handler.call(worker, event) }
+              } else handler.call(worker, event)
+            })
+          } })
+          return worker
+        }
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
+      const review = page.getByRole('button', { name: 'Review Game', exact: true })
+      await review.click(); await review.waitFor()
+      const report = await page.getByTestId('review-run-summary').innerText()
+      const cursor = await page.locator('.mtree-chip-active').getAttribute('data-node-id')
+      const panel = page.locator('.saved-reviews'), notice = panel.locator('.saved-review-notice')
+      const save = panel.getByRole('button', { name: 'Save review', exact: true })
+      const backup = panel.getByRole('button', { name: 'Export review backup', exact: true })
+      const restore = panel.getByRole('button', { name: 'Import review backup', exact: true })
+      const choice = panel.getByLabel('Choose a saved review')
+      const board = page.locator('.board-stage')
+      const ready = async button => {
+        const handle = await button.elementHandle()
+        try { await page.waitForFunction(el => !el.disabled, handle) } finally { await handle.dispose() }
+      }
+      const focused = control => control.evaluate(el => el === document.activeElement)
+      const press = async button => { await button.focus(); await page.keyboard.press('Enter') }
+      const upload = async buffer => {
+        const chooser = page.waitForEvent('filechooser')
+        await press(restore)
+        await (await chooser).setFiles({ name: 'review-focus.json', mimeType: 'application/json', buffer })
+      }
+      await page.evaluate(() => { window.__failReviewFocusSave = true })
+      await press(save)
+      await notice.filter({ hasText: 'QA review save failed. Try again.' }).waitFor(); await ready(save)
+      assert(await focused(save), 'a failed save lost its focused retry')
+      await press(save)
+      await notice.filter({ hasText: 'Review saved on this device.' }).waitFor(); await ready(choice)
+      assert(await focused(choice) && await save.isDisabled() && await choice.locator('option').count() === 1, 'saving did not focus its one committed saved review')
+      const download = page.waitForEvent('download')
+      await press(backup)
+      const file = await download, buffer = fs.readFileSync(await file.path()), stored = JSON.parse(buffer).reviews[0]
+      await notice.filter({ hasText: 'Backup download started for 1 saved review' }).waitFor(); await ready(backup)
+      assert(await focused(backup) && stored.id === await choice.inputValue(), 'export lost focus or backed up a different review')
+      await page.evaluate(() => {
+        window.__reviewFocusCreateUrl = URL.createObjectURL
+        URL.createObjectURL = () => { throw new DOMException('QA download unavailable', 'NotAllowedError') }
+      })
+      await press(backup)
+      await notice.filter({ hasText: 'The browser could not export the review backup.' }).waitFor(); await ready(backup)
+      assert(await focused(backup), 'a failed backup export lost its focused retry')
+      await page.evaluate(() => { URL.createObjectURL = window.__reviewFocusCreateUrl })
+      await upload(Buffer.from('{}'))
+      await notice.filter({ hasText: 'This is not a Web Chess review backup.' }).waitFor(); await ready(restore)
+      assert(await focused(restore), 'an invalid backup lost its focused import retry')
+      await upload(buffer)
+      await notice.filter({ hasText: 'Imported 0 reviews; 1 identical review skipped.' }).waitFor(); await ready(restore)
+      assert(await focused(restore) && await choice.locator('option').count() === 1, 'import lost focus or duplicated the existing saved review')
+      assert(await page.getByTestId('review-run-summary').innerText() === report, 'saving or backing up changed the open report')
+
+      // A storage/worker response must yield to a newer destination chosen while pending.
+      await review.click(); await review.waitFor(); await ready(save)
+      await page.evaluate(() => { window.__holdReviewFocusSave = true })
+      await press(save)
+      await page.waitForFunction(() => typeof window.__releaseReviewFocusSave === 'function')
+      await board.focus(); await page.evaluate(() => window.__releaseReviewFocusSave())
+      await notice.filter({ hasText: 'Review saved on this device.' }).waitFor(); await ready(choice)
+      assert(await focused(board) && await choice.locator('option').count() === 2, 'a late successful save stole the newer board focus or failed to commit')
+      await page.evaluate(() => { window.__holdReviewFocusBackup = true })
+      const laterDownload = page.waitForEvent('download')
+      await press(backup)
+      await page.waitForFunction(() => typeof window.__releaseReviewFocusBackup === 'function')
+      await board.focus(); await page.evaluate(() => window.__releaseReviewFocusBackup())
+      const laterFile = await laterDownload
+      await notice.filter({ hasText: 'Backup download started for 2 saved reviews' }).waitFor(); await ready(backup)
+      const laterBackup = JSON.parse(fs.readFileSync(await laterFile.path(), 'utf8'))
+      assert(await focused(board) && laterBackup.reviews.length === 2
+        && JSON.stringify(laterBackup.reviews.find(run => run.id === stored.id)) === JSON.stringify(stored), 'late export stole focus or changed stored scores/settings')
+      await page.evaluate(() => { window.__holdReviewFocusBackup = true })
+      await upload(buffer)
+      await page.waitForFunction(() => typeof window.__releaseReviewFocusBackup === 'function')
+      await board.focus(); await page.evaluate(() => window.__releaseReviewFocusBackup())
+      await notice.filter({ hasText: 'Imported 0 reviews; 1 identical review skipped.' }).waitFor(); await ready(restore)
+      assert(await focused(board) && await page.locator('.mtree-chip-active').getAttribute('data-node-id') === cursor, 'a late import stole focus or navigated the board')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `review storage focus errors or overflow: ${errors.join('; ')}`)
+      console.log(`  review storage focus (${width}px, ${scale}x, ${theme}): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor`)
     } finally { await context.close() }
   }
 }
@@ -3452,7 +3885,7 @@ async function checkFinishedAutomaticAnalysis(browser) {
       assert(!await page.evaluate(start => window.__uciCommands.slice(start).includes('go infinite'), beforeEnd), 'navigation restarted infinite analysis on a finished game')
       assert(await page.locator('.eval-bar-label').innerText() === '½-½', 'automatic search guard lost the board result')
       const manualStart = await page.evaluate(() => window.__uciCommands.length)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(start => window.__uciCommands.slice(start).includes('go infinite'), manualStart)
       const manualRunning = await page.evaluate(() => window.__uciCommands.length)
       await page.getByTestId('keep-searching').uncheck()
@@ -4239,6 +4672,49 @@ function reachInPanel(selector) {
   return { trapped: trapped.length, native: native.length, past: past.map(describe) }
 }
 
+async function assertDialogBrowserChords(page, selector) {
+  const panel = page.locator(selector)
+  await panel.evaluate(panel => {
+    const controls = [...panel.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]')]
+      .filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && getComputedStyle(el).visibility !== 'hidden'
+        && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0)
+    controls.at(-1).focus()
+  })
+  for (const [chord, key] of [['Shift+Escape', 'Escape'], ['Control+Tab', 'Tab']]) {
+    await page.evaluate(key => {
+      window.__modalChordPrevented = null
+      const record = event => {
+        if (event.key !== key) return
+        window.__modalChordPrevented = event.defaultPrevented
+        window.removeEventListener('keydown', record)
+      }
+      window.addEventListener('keydown', record)
+    }, key)
+    await page.keyboard.press(chord)
+    assert(await panel.isVisible() && await page.evaluate(() => window.__modalChordPrevented === false), `${selector} captured native ${chord}`)
+  }
+  const ignored = await panel.evaluate(panel => {
+    const controls = [...panel.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]')]
+      .filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && getComputedStyle(el).visibility !== 'hidden'
+        && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0)
+    return [controls[0], controls.at(-1)].flatMap(target => {
+      target.focus()
+      return [
+        { key: 'Escape', ctrlKey: true }, { key: 'Escape', metaKey: true }, { key: 'Escape', altKey: true }, { key: 'Escape', shiftKey: true },
+        { key: 'Escape', isComposing: true }, { key: 'Escape', keyCode: 229 },
+        { key: 'Tab', ctrlKey: true }, { key: 'Tab', metaKey: true }, { key: 'Tab', altKey: true },
+        { key: 'Tab', ctrlKey: true, shiftKey: true }, { key: 'Tab', metaKey: true, shiftKey: true }, { key: 'Tab', altKey: true, shiftKey: true },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        target.dispatchEvent(event)
+        return !event.defaultPrevented && document.activeElement === target && panel.isConnected
+      })
+    })
+  })
+  assert(ignored.every(Boolean), `${selector} changed focus or closed on a modified/composing Escape or browser Tab chord`)
+  console.log(`  dialog browser chords (${selector}): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges`)
+}
+
 async function checkADialogKeepsTheKeyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -4253,6 +4729,7 @@ async function checkADialogKeepsTheKeyboard(browser) {
     await page.getByRole('button', { name: /Open settings/ }).click()
     await page.locator('.settings-body').waitFor({ timeout: 10000 })
     await page.waitForTimeout(400)
+    await assertDialogBrowserChords(page, '.settings-body')
 
     const focusState = () => page.evaluate(() => {
       const active = document.activeElement
@@ -4337,12 +4814,14 @@ async function checkADialogKeepsTheKeyboard(browser) {
       await overlay.open()
       await page.locator(overlay.panel).waitFor({ timeout: 15000 })
       await page.waitForTimeout(500)
+      await assertDialogBrowserChords(page, overlay.panel)
       const found = await page.evaluate(reachInPanel, overlay.panel)
       assert(found.past.length === 0,
         `${overlay.name}: the browser will tab to ${found.past.length} control(s) past the end of the trap: ${found.past.join(', ')}`)
       assert(found.native === found.trapped,
         `${overlay.name}: the panel holds ${found.native} focusable controls and the trap knows of ${found.trapped}`)
       await page.keyboard.press('Escape')
+      await page.locator(overlay.panel).waitFor({ state: 'detached' })
       await page.waitForTimeout(400)
       console.log(`  ${overlay.name}: ${found.native} focusable controls, all inside the trap`)
     }
@@ -4363,12 +4842,17 @@ async function checkADialogKeepsTheKeyboard(browser) {
     await page.locator('#chessboard-square-b8').click()
     await page.locator('.promotion-chooser').waitFor({ timeout: 15000 })
     await page.waitForTimeout(500)
+    await assertDialogBrowserChords(page, '.promotion-overlay')
     const promotion = await page.evaluate(reachInPanel, '.promotion-overlay')
     assert(promotion.past.length === 0,
       `Promotion chooser: the browser will tab to ${promotion.past.length} control(s) past the end of the trap: ${promotion.past.join(', ')}`)
     assert(promotion.native === promotion.trapped,
       `Promotion chooser: the panel holds ${promotion.native} focusable controls and the trap knows of ${promotion.trapped}`)
     console.log(`  Promotion chooser: ${promotion.native} focusable controls, all inside the trap`)
+    await page.keyboard.press('Escape')
+    await page.locator('.promotion-chooser').waitFor({ state: 'detached' })
+    await waitForBoardPiece(page, 'b7', 'White pawn')
+    assert(await page.locator('#chessboard-square-b8 [data-piece]').count() === 0, 'ordinary Escape committed a promotion instead of canceling it')
   } finally {
     await context.close()
   }
@@ -5509,7 +5993,7 @@ async function checkTheArrowCountSaysWhatItCanDraw(browser) {
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
 
-    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.getByRole('button', { name: 'Analyze position' }).click()
     await page.waitForFunction(
       () => document.querySelectorAll('.board-surface path[marker-end]').length > 0,
       null, { timeout: 20000 })
@@ -5620,7 +6104,10 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
       'bullet is already on, so switching it on proves nothing')
     asked = await askedUrls()
     const before = asked.filter(url => url.includes('/lichess')).length
-    await bullet.click()
+    await bullet.focus()
+    await page.keyboard.down('Enter')
+    await page.keyboard.down('Enter')
+    await page.keyboard.up('Enter')
     assert(await bullet.getAttribute('aria-pressed') === 'true', 'the bullet pill did not switch on')
     await page.waitForTimeout(3000)
 
@@ -5649,7 +6136,7 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
     }
     assert(await card.locator('.opening-speed-toggle').count() === 0,
       'the speed pills are still offered for Masters, which has no speeds')
-    console.log(`  opening filters: Lichess asked with ${speeds.join(',')}`
+    console.log(`  opening filters: held Enter selects once; Lichess asked with ${speeds.join(',')}`
       + ` and ratings ${latestLichess.searchParams.get('ratings')}; ${mastersUrls.length} Masters request(s) carried neither`)
   } finally {
     await context.close()
@@ -5708,7 +6195,7 @@ async function checkTheAdvancedLimitsReachTheEngine(browser) {
     await closeSettings(page)
 
     await page.evaluate(() => { window.__mark = (window.__uciCommands || []).length })
-    await page.getByRole('button', { name: 'Run analysis' }).click()
+    await page.getByRole('button', { name: 'Analyze position' }).click()
     await page.waitForFunction(
       () => (window.__uciCommands || []).slice(window.__mark).some(c => c.startsWith('go ')),
       null, { timeout: 20000 })
@@ -5745,12 +6232,20 @@ async function checkAPaletteTabCommandGoesThere(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+      workspaceMode: 'play', analysisExperience: 'pro', autoAnalyze: false,
+      engineProfile: 'lite-single-local', reviewMaxWorkers: 1,
+    })))
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
     await page.getByRole('button', { name: 'Play', exact: true }).first().click()
     await startGameMode(page, 'Human vs Human')
     await page.locator('#chessboard-square-e2').waitFor({ timeout: 20000 })
+    await page.locator('#chessboard-square-e2').click()
+    await page.locator('#chessboard-square-e4').click()
+    await page.locator('#chessboard-square-e4 [data-piece="wP"]').waitFor()
+    const boardBefore = await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel)
 
     const state = () => page.evaluate(() => ({
       title: (document.querySelector('#analysis-panel-title')?.textContent || '').trim(),
@@ -5773,6 +6268,67 @@ async function checkAPaletteTabCommandGoesThere(browser) {
     assert(after.tabs.some(tab => /^Engine Lab:true$/.test(tab)),
       `Engine Lab was chosen and the active tab is ${JSON.stringify(after.tabs)}`)
     console.log(`  palette tabs: Engine Lab from Play mode lands on ${JSON.stringify(after.tabs)}`)
+    const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+    await command.fill('isready')
+    const collapse = async () => {
+      const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+      await handle.focus()
+      await handle.press('Home')
+      await page.waitForFunction(() => document.querySelector('.panel.right > .panel-inner')?.inert)
+    }
+    const choose = async id => {
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+      await page.locator('.command-palette').waitFor()
+      await page.locator(`[data-command-id="${id}"] button`).click()
+      await page.locator('.command-palette').waitFor({ state: 'detached' })
+    }
+    const preference = () => page.evaluate(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).rightPanelWidth)
+    let revealed = 0
+    for (const [width, scale] of [[1280, 1], [901, 2]]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      for (const mode of ['Play', 'Analysis']) {
+        for (const [id, tab] of [['tab-analyze', 'Analyze'], ['tab-review', 'Review'], ['tab-lab', 'Engine Lab']]) {
+          await page.getByRole('button', { name: mode, exact: true }).first().click()
+          await collapse()
+          const preferredWidth = await preference()
+          await choose(id)
+          const selected = page.getByRole('button', { name: tab, exact: true })
+          await selected.waitFor()
+          assert((await selected.getAttribute('class')).includes('active'), 'the tab command did not select its requested destination')
+          assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert && el.getAttribute('aria-hidden') !== 'true'),
+            'the requested analysis tab remains inaccessible inside a collapsed panel')
+          await page.waitForFunction(() => {
+            const panel = document.querySelector('.panel.right')
+            const actual = panel.getBoundingClientRect().width
+            return actual > 0 && Math.abs(actual - Number.parseFloat(panel.style.width)) < 1
+          })
+          assert(await preference() === preferredWidth, 'opening a collapsed tab replaced the saved panel width')
+          assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'opening a collapsed tab changed the board')
+          revealed++
+        }
+      }
+    }
+    assert(await command.inputValue() === 'isready', 'opening the panel erased the unsent Engine Lab command')
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+    await collapse()
+    await choose('review-game')
+    await page.getByRole('button', { name: 'Review', exact: true }).waitFor()
+    await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+    assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert), 'reviewing from Play left the result in a collapsed panel')
+    assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'reviewing from a collapsed panel changed the selected position')
+    for (const tab of ['Analyze', 'Engine Lab']) {
+      await page.getByRole('button', { name: tab, exact: true }).click()
+      await collapse()
+      await choose('review-game')
+      const reviewTab = page.getByRole('button', { name: 'Review', exact: true })
+      await reviewTab.waitFor()
+      assert((await reviewTab.getAttribute('class')).includes('active'), `Review game from ${tab} kept its report in another tab`)
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert), `Review game from ${tab} left the report inaccessible`)
+      assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'the review command moved the board')
+    }
+    console.log(`  palette tab reveal: ${revealed} collapsed-panel destinations reopen from Play/Analysis at desktop and 901px/200% text; saved width, board and command draft survive; Review game opens and completes from Play, Analyze and Engine Lab`)
   } finally {
     await context.close()
   }
@@ -6150,11 +6706,12 @@ async function checkTextCompositionKeys(browser) {
     await dialog.getByRole('button', { name: 'Rename Composition game', exact: true }).click()
     const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
     await rename.fill('A draft in progress')
+    await assertRenameBrowserChords(rename, 'A draft in progress')
     await rename.dispatchEvent('keydown', { key: 'Escape', bubbles: true, isComposing: true })
     assert(await rename.inputValue() === 'A draft in progress', 'composing Escape discarded the rename draft')
     await rename.press('Escape')
     assert(await dialog.isVisible() && await rename.count() === 0, 'ordinary Escape no longer cancels rename')
-    console.log('  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; ordinary keys still work')
+    console.log('  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; native Shift+Escape and modified Escape retain the Library rename draft; ordinary keys still work')
   } finally { await context.close() }
 }
 
@@ -6536,7 +7093,7 @@ async function checkLiveExportCopy(browser) {
       }, theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => window.__liveExportEngine.searching)
       const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
       await opener.click()
@@ -6554,9 +7111,28 @@ async function checkLiveExportCopy(browser) {
         assert(await output.inputValue() === expected && await output.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'live analysis replaced selected export text or collapsed its selection')
         await page.keyboard.press('Control+c')
         assert(await page.evaluate(() => window.__liveNativeSelection) === expected, 'native Copy received different text from the selected snapshot')
+        await page.evaluate(() => { window.__liveNativeSelection = null })
+        await page.keyboard.press('Meta+c')
+        assert(await page.evaluate(() => window.__liveNativeSelection) === expected, 'Command+C did not copy the selected read-only PGN')
         if (nativeClipboard) await page.waitForFunction(async text => await window.__readLiveClipboard() === text, expected, { timeout: 5000 })
+        const prefix = expected.slice(0, 24)
+        await output.evaluate((el, length) => el.setSelectionRange(0, length), prefix.length)
+        await page.keyboard.press('Control+c')
+        assert(await page.evaluate(() => window.__liveNativeSelection) === prefix, 'read-only Copy ignored a partial selection')
+        if (nativeClipboard) await page.waitForFunction(async text => await window.__readLiveClipboard() === text, prefix, { timeout: 5000 })
+        await output.press('Control+a')
       }
       await output.focus(); await output.press('Control+a')
+      const fullySelected = () => output.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length)
+      assert(await fullySelected(), 'Control+A did not select the read-only PGN before the live update')
+      await output.evaluate(el => el.setSelectionRange(0, 0))
+      await output.press('Meta+a')
+      assert(await fullySelected(), 'Command+A did not select the read-only PGN before the live update')
+      const ignored = await output.evaluate(el => [
+        { ctrlKey: true, shiftKey: true }, { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true },
+        { ctrlKey: true, isComposing: true }, { ctrlKey: true, keyCode: 229 }, {},
+      ].flatMap(extra => ['a', 'c'].map(key => { const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extra }); el.dispatchEvent(event); return event.defaultPrevented })))
+      assert(ignored.every(prevented => !prevented), 'read-only Select All intercepted a composing or different modifier chord')
       const original = await output.inputValue()
       assert(await output.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent.includes('updates resume')), 'export field does not explain when live updates resume')
       await publish(40, 125)
@@ -6618,7 +7194,101 @@ async function checkLiveExportCopy(browser) {
       assert((await output.inputValue()).includes('[%eval -9.00]') && await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 0, 'leaving the held reading did not reveal and unconfirm newer text')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'live export explanation overflows the viewport')
       assert(errors.length === 0, `live export errors: ${errors.join('; ')}`)
-      console.log(`  live export (${width}px, ${scale}x, ${theme}): selected text survives engine score updates; native Copy${nativeClipboard ? ' + clipboard' : ' event'}; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold`)
+      console.log(`  live export (${width}px, ${scale}x, ${theme}): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy${nativeClipboard ? ' + clipboard' : ' event'}; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkPgnExportPreferences(browser) {
+  const key = 'webchess:pgn-export-options:v1'
+  const labels = ['Variations', 'Comments', 'Engine evals', 'Glyphs']
+  const optionKeys = ['includeVariations', 'includeComments', 'includeEngineAnnotations', 'includeGlyphs']
+  const all = [true, true, true, true], mixed = [true, false, true, false]
+  const cases = [
+    [1280, 900, 1, 'dark', null, all, false],
+    [320, 812, 2, 'light', '{"includeComments":false,"includeGlyphs":false}', mixed, false],
+    [844, 390, 2, 'dark', '{"includeVariations":"false","includeComments":0,"includeEngineAnnotations":null,"extra":false}', all, false],
+    [375, 812, 1, 'light', '{broken', all, false],
+    [375, 812, 2, 'light', null, all, true],
+  ]
+  for (const [width, height, scale, theme, raw, initial, blocked] of cases) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(({ key, raw, theme, blocked }) => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+        if (!sessionStorage.getItem('qa-export-options-seeded')) {
+          if (raw !== null) localStorage.setItem(key, raw)
+          sessionStorage.setItem('qa-export-options-seeded', 'true')
+        }
+        if (blocked) {
+          for (const method of ['getItem', 'setItem']) {
+            const native = Storage.prototype[method]
+            Storage.prototype[method] = function (name, ...args) {
+              if (name === key) throw new DOMException('QA export preference storage blocked', 'SecurityError')
+              return native.call(this, name, ...args)
+            }
+          }
+        }
+      }, { key, raw, theme, blocked })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const dialog = page.locator('.pgn-dialog')
+      const open = async () => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+      }
+      const states = () => dialog.getByRole('checkbox').evaluateAll(els => els.map(el => el.checked))
+      const choose = async values => {
+        for (const [index, label] of labels.entries()) {
+          const box = dialog.getByRole('checkbox', { name: label, exact: true })
+          if (await box.isChecked() !== values[index]) { await box.focus(); await box.press('Space') }
+        }
+      }
+      const expectStored = async values => {
+        if (blocked) return
+        await page.waitForFunction(({ key, optionKeys, values }) => {
+          const saved = JSON.parse(localStorage.getItem(key) || '{}')
+          return optionKeys.every((name, index) => saved[name] === values[index])
+        }, { key, optionKeys, values })
+      }
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await dialog.locator('textarea').fill('[Event "Preferences José"]\n\n1. e4 {Personal note ♞} $1 e5 (1... c5 {Branch note}) 2. Nf3 *')
+      await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' }); await waitForBoardPiece(page, 'f3', 'White knight')
+      await open()
+      assert(JSON.stringify(await states()) === JSON.stringify(initial), 'stored export choices were not validated/defaulted correctly')
+      const output = dialog.getByRole('textbox', { name: 'Annotated Output', exact: true })
+      await choose([false, false, false, false]); await expectStored([false, false, false, false])
+      const plain = await output.inputValue()
+      assert(!/Personal note|Branch note|c5|\$\d+|\[%eval/.test(plain) && plain.includes('Nf3'), 'disabling export choices lost moves or retained excluded annotations')
+      const [file] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download PGN', exact: true }).click()])
+      assert(fs.readFileSync(await file.path(), 'utf8') === await output.inputValue(), 'remembered export settings did not reach the downloaded PGN')
+      await dialog.getByRole('button', { name: 'Close', exact: true }).click(); await open()
+      assert(JSON.stringify(await states()) === JSON.stringify(blocked ? initial : [false, false, false, false]), 'closing the dialog lost saved choices or claimed to persist blocked ones')
+      await choose(mixed); await expectStored(mixed)
+      await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+      await page.waitForFunction(() => {
+        const saved = JSON.parse(localStorage.getItem('webchess:auto-saved-game:v1') || 'null')
+        return saved?.pgn.includes('Personal note') && saved.pgn.includes('c5') && saved.moveCount === 3
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Restore', exact: true }).click(); await waitForBoardPiece(page, 'f3', 'White knight')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await open()
+      assert(JSON.stringify(await states()) === JSON.stringify(blocked ? initial : mixed), 'export choices did not survive reload')
+      const help = dialog.locator('.dialog-export-help')
+      assert((await help.innerText()).includes(blocked ? 'apply while this dialog is open' : 'remembered on this device'), 'export preference guidance promises persistence when storage is blocked')
+      await choose(all); await expectStored(all)
+      assert((await output.inputValue()).includes('Personal note') && (await output.inputValue()).includes('c5'), 'export preferences discarded the original notes or variation')
+      await help.scrollIntoViewIfNeeded()
+      assert(await help.evaluate(el => el.scrollWidth <= el.clientWidth + 1)
+        && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'export preference guidance overflows enlarged text')
+      assert(errors.length === 0, `export preference errors: ${errors.join('; ')}`)
+      await page.screenshot({ path: `/tmp/web-chess-export-preferences-${browser.browserType().name()}-${width}-${scale}x-${blocked ? 'blocked' : 'saved'}.png` })
+      console.log(`  PGN export preferences (${width}×${height}, ${scale}x, ${theme}, ${blocked ? 'blocked storage' : raw === null ? 'defaults' : 'stored validation'}): four keyboard choices, close/reopen and reload; exact plain download, restored original notes/variation, truthful persistence guidance and enlarged layout`)
     } finally { await context.close() }
   }
 }
@@ -6642,7 +7312,7 @@ async function checkManualClipboardFallback(browser) {
         } })
         document.addEventListener('copy', () => {
           const field = document.activeElement
-          if (field instanceof HTMLTextAreaElement) window.__manualCopySelection = field.value.slice(field.selectionStart, field.selectionEnd)
+          if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) window.__manualCopySelection = field.value.slice(field.selectionStart, field.selectionEnd)
         })
       }, theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
@@ -6679,6 +7349,17 @@ async function checkManualClipboardFallback(browser) {
       assert(!(await output.inputValue()).includes('Unicode note'), 'Comments option did not change the exported text')
       await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
       await selectedCopy(output, 'Select PGN text')
+      await dialog.getByRole('button', { name: 'Copy Game Link', exact: true }).click()
+      const link = dialog.getByRole('textbox', { name: 'Game link fallback', exact: true })
+      await link.waitFor(); await link.focus()
+      const url = await link.inputValue()
+      await link.evaluate(el => el.setSelectionRange(0, 0))
+      await link.press('Control+a')
+      assert(await link.evaluate(el => el.selectionStart === 0 && el.selectionEnd === el.value.length), 'Control+A did not select the read-only link input')
+      await link.evaluate(el => el.setSelectionRange(0, 0))
+      await link.press('Meta+a'); await link.press('Meta+c')
+      assert(await page.evaluate(() => window.__manualCopySelection) === url, 'Command+A/C did not copy the whole read-only fallback link')
+      if (nativeClipboard) await page.waitForFunction(async value => await window.__readManualClipboard() === value, url, { timeout: 5000 })
       await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
       assert(await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0, 'FEN tab offers selection of the previous PGN')
       const fen = dialog.locator('.fen-textarea')
@@ -6692,7 +7373,7 @@ async function checkManualClipboardFallback(browser) {
       await dialog.waitFor({ state: 'detached' })
       await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open PGN and FEN dialog', null, { timeout: 5000 })
       assert(errors.length === 0, `manual-copy errors: ${errors.join('; ')}`)
-      console.log(`  manual copy (${width}×${height}, ${scale}x, ${theme}): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy${nativeClipboard ? ' + actual clipboard' : ' event'}, 44px actions and opener focus`)
+      console.log(`  manual copy (${width}×${height}, ${scale}x, ${theme}): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy${nativeClipboard ? ' + actual clipboard' : ' event'}, 44px actions and opener focus`)
     } finally { await context.close() }
   }
 }
@@ -6841,6 +7522,11 @@ async function checkPositionSetupEnPassant(browser) {
     try {
       await page.addInitScript(fakeEngineScript())
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      if (width >= 900) {
+        const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+        await handle.focus(); await handle.press('Home')
+        await page.waitForFunction(() => document.querySelector('.right .panel-inner')?.inert)
+      }
       await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
       const dialog = page.locator('.pgn-dialog')
       await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
@@ -6891,6 +7577,7 @@ async function checkPositionSetupEnPassant(browser) {
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
       await dialog.getByRole('button', { name: 'Load & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
+      assert(await page.locator('.right .panel-inner').evaluate(el => !el.inert), 'Load & Analyze kept the analysis panel collapsed')
       await page.click(`#chessboard-square-${from}`)
       await page.click(`#chessboard-square-${target}`)
       await page.waitForFunction(square => document.querySelector(`#chessboard-square-${square}`)?.getAttribute('aria-label')?.includes('empty'), captured)
@@ -6956,6 +7643,65 @@ async function checkPgnImportStatusIsolation(browser) {
   }
 }
 
+async function checkImportValidation(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      const dialog = page.locator('.pgn-dialog'), text = dialog.locator('textarea.input-textarea')
+      const importButton = dialog.getByRole('button', { name: 'Import & Analyze', exact: true })
+      let edit = 0
+      const database = '1. e4 *\n\n1. d4 *'
+      for (const value of ['4k3/8/8/8/8/8/8/4K3 w - - 0 1', 'https://lichess.org/abcd1234', database]) {
+        await text.fill(''); await text.fill(value)
+        const description = () => text.evaluate(el => (el.getAttribute('aria-describedby') || '').split(/\s+/)
+          .map(id => document.getElementById(id)?.textContent || '').join(' ').trim())
+        const explanation = await description()
+        assert(explanation && await importButton.isDisabled(), 'the preflight fixture does not explain why Import is unavailable')
+        if (value === database) {
+          const hint = dialog.locator('.pgn-database-hint')
+          await hint.scrollIntoViewIfNeeded()
+          const contrast = await page.evaluate(contrastProbe, '.pgn-database-hint')
+          assert(contrast.checked === 1 && contrast.failures.length === 0, `database guidance contrast: ${JSON.stringify(contrast)}`)
+          assert(await hint.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'database guidance overflows its dialog')
+        }
+        const retained = async action => {
+          assert(await text.inputValue() === value && await text.getAttribute('aria-invalid') === String(value !== database)
+            && await description() === explanation && await importButton.isDisabled(), `${action} erased the retained PGN draft’s validation guidance`)
+          if (value === database) assert(await dialog.getByRole('alert').count() === 0
+            && await dialog.getByRole('button', { name: 'Add 2 games to the library', exact: true }).isEnabled(), 'a usable database was reported as an invalid draft')
+        }
+        await dialog.locator('.archive-input').fill(`Reader${edit++}`); await retained('typing an archive username')
+        await dialog.getByRole('button', { name: 'Chess.com', exact: true }).click(); await retained('choosing an archive provider')
+        await dialog.getByRole('spinbutton', { name: 'Games', exact: true }).fill(String(11 + edit++)); await retained('editing the archive count')
+        const chooser = page.waitForEvent('filechooser')
+        await dialog.getByRole('button', { name: 'Open PGN File', exact: true }).click()
+        await (await chooser).setFiles([]); await retained('canceling the file picker')
+        await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
+        assert(await dialog.getByRole('alert').count() === 0, 'PGN guidance leaked into the valid FEN tab')
+        await dialog.getByRole('button', { name: 'Import', exact: true }).click(); await retained('returning from the FEN tab')
+        await text.fill('1. e4 *')
+        assert(await text.getAttribute('aria-invalid') !== 'true' && !await text.getAttribute('aria-describedby')
+          && await importButton.isEnabled() && await dialog.getByRole('alert').count() === 0, 'correcting the PGN retained obsolete guidance or disabled Import')
+      }
+      await text.fill(database)
+      await dialog.getByRole('button', { name: 'Add 2 games to the library', exact: true }).click()
+      await dialog.getByRole('status').filter({ hasText: 'Added 2 games' }).waitFor()
+      assert(await text.inputValue() === '' && await text.getAttribute('aria-invalid') !== 'true'
+        && await dialog.getByRole('alert').count() === 0, 'completed database import kept obsolete preflight guidance')
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'preflight guidance changed the board')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `import validation errors or overflow: ${errors.join('; ')}`)
+      console.log(`  import validation (${width}px, ${scale}x, ${theme}): FEN/game-link errors and informational database guidance stay associated through archive username/provider/count edits, canceled file picker and tab return; usable databases have no error; corrected PGN and completed database import clear guidance without changing the board`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPgnFileReading(browser) {
   const fresh = '[Event "File read ♞"]\n\n1. d4 {José’s note} (1. e4 {Side note} e5) d5 2. c4 {Fresh read ♞} *'
   for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 2, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
@@ -6979,6 +7725,14 @@ async function checkPgnFileReading(browser) {
         && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
       await page.locator('.move-entry summary').click()
       await page.locator('.move-entry input').fill('e4'); await page.locator('.move-entry input').press('Enter')
+      let expandedRightWidth = 0
+      if (width >= 900) {
+        const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+        await handle.focus(); await handle.press('ArrowLeft')
+        expandedRightWidth = Number(await handle.getAttribute('aria-valuenow'))
+        await handle.press('Home')
+        await page.waitForFunction(() => document.querySelector('.right .panel-inner')?.inert)
+      }
       const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
       const dialog = page.locator('.pgn-dialog'), draft = dialog.locator('textarea.input-textarea'), file = dialog.locator('input[type=file]')
       const reading = dialog.getByRole('status').filter({ hasText: 'Reading PGN file…' })
@@ -7033,10 +7787,24 @@ async function checkPgnFileReading(browser) {
       await finish(newest, fresh); await open().waitFor()
       assert(await draft.inputValue() === fresh && await dialog.locator('.dialog-file-name').innerText() === `slow-${newest}.pgn`, 'a current file did not fill its exact Unicode PGN and filename')
       const failure = await start(); await finish(failure, '', true)
-      await dialog.getByRole('alert').filter({ hasText: 'Could not read that PGN file.' }).waitFor()
-      assert(await open().isEnabled() && await draft.inputValue() === fresh && await reading.count() === 0, 'a failed read lost the draft or blocked retry')
+      const assertFileError = async message => {
+        const fileError = dialog.locator('.pgn-file-error')
+        await fileError.filter({ hasText: message }).waitFor()
+        assert(await open().isEnabled() && await draft.inputValue() === fresh && await reading.count() === 0
+          && await open().getAttribute('aria-describedby') === await fileError.getAttribute('id')
+          && await draft.getAttribute('aria-invalid') !== 'true' && !await draft.getAttribute('aria-describedby')
+          && await dialog.locator('.dialog-file-name').innerText() === `slow-${newest}.pgn`
+          && await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).isEnabled(), 'a failed read lost/invalidated the valid draft or its filename, lacks associated file retry feedback or blocked import')
+        const errorContrast = await page.evaluate(contrastProbe, '.pgn-file-error')
+        assert(errorContrast.checked === 1 && errorContrast.failures.length === 0 && await fileError.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `file error feedback is unreadable: ${JSON.stringify(errorContrast)}`)
+      }
+      await assertFileError('Could not read that PGN file.')
+      await open().focus()
+      await file.setInputFiles({ name: 'oversized.pgn', mimeType: 'application/x-chess-pgn', buffer: Buffer.alloc(5 * 1024 * 1024 + 1) })
+      await assertFileError('up to 5 MB')
       const paste = await start(); await draft.fill('1. c4 {New paste} e5 *'); await finish(paste, fresh)
-      assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await cancel().count() === 0 && await reading.count() === 0, 'a later paste did not take ownership of file progress and content')
+      assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await cancel().count() === 0 && await reading.count() === 0
+        && await dialog.locator('.pgn-file-error').count() === 0, 'a later paste did not take ownership of file progress, error feedback and content')
       const tab = await start(); await dialog.getByRole('button', { name: 'FEN', exact: true }).click(); await finish(tab, fresh)
       await dialog.getByRole('button', { name: 'Import', exact: true }).click()
       assert(await draft.inputValue() === '1. c4 {New paste} e5 *' && await reading.count() === 0, 'an old-tab file completion restored progress or changed the draft')
@@ -7057,10 +7825,12 @@ async function checkPgnFileReading(browser) {
       const final = await start(); await finish(final, fresh)
       await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
       await dialog.waitFor({ state: 'detached' }); await page.locator('#chessboard-square-c4 [data-piece="wP"]').waitFor()
+      assert(await page.locator('.right .panel-inner').evaluate(el => !el.inert), 'Import & Analyze kept its result in a collapsed panel')
+      if (expandedRightWidth) await page.waitForFunction(width => Math.abs(document.querySelector('.right').getBoundingClientRect().width - width) < 1, expandedRightWidth)
       assert(await page.locator('.mtree-chip').count() === 5 && await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Fresh read ♞', 'the final file lost its variation or note during actual import')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'PGN read controls overflow')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `PGN file-read errors: ${errors.join('; ')}`)
-      console.log(`  PGN file reading (${width}×${height}, ${scale}x, ${theme}): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import`)
+      console.log(`  PGN file reading (${width}×${height}, ${scale}x, ${theme}): associated progress/Cancel and readable file errors; failed reads preserve the valid PGN/filename and import availability; focused retry, stale resolve/reject ownership, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import`)
     } finally { await context.close() }
   }
 }
@@ -7634,12 +8404,22 @@ async function checkLibrarySorting(browser) {
       assert(geometry.height >= 44 && geometry.fits && geometry.exposed, `native sort control clips its full label or target: ${JSON.stringify(geometry)}`)
       if (width === 320 && scale === 2) assert(geometry.toolbar < 155, 'compact sorting still consumes too much enlarged phone reading space')
       assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'sorting played or loaded a game')
+      await dialog.getByText('Saving library changes…', { exact: true }).waitFor({ state: 'hidden' })
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(orders.moves), 'reopening Library lost the selected sort')
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      await sort.waitFor()
+      assert(await sort.inputValue() === 'moves' && JSON.stringify(await rows()) === JSON.stringify(orders.moves), 'reloading lost the saved sort, records or favorite priority')
       await dialog.getByRole('button', { name: 'Load Mike study', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
       await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
       assert(errors.length === 0, `library sorting errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'library sorting overflows')
-      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; actual game load`)
+      console.log(`  library sort (${width}px, ${scale}x, ${theme}): native keyboard and all five orders; recorded/partial/missing game dates, starred priority, filter/clear, star toggles and focus retained; full longest label, ${geometry.height}px target, ${geometry.toolbar}px toolbar; chosen sort and records survive close/reload; actual game load`)
     } finally { await context.close() }
   }
 }
@@ -8144,6 +8924,91 @@ async function checkLibraryRowFocusOwnership(browser) {
   }
 }
 
+async function checkLibraryMatchingExport(browser) {
+  const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
+  const games = Array.from({ length: 108 }, (_, index) => {
+    const body = index === 0 ? '1. e4 {Keep José ♞} e5 (1... c5) ; trailing 0-1'
+      : index === 1 ? `[SetUp "1"]\n[FEN "${fen}"]\n\n{A position study ♞}` : '1. d4 d5 *'
+    return { id: `collection-${index}`, name: `${index < 106 ? 'Collection' : 'Other'} ${String(index).padStart(3, '0')}`,
+      pgn: `[Event "${index < 106 ? 'Collection' : 'Other'} ${index}"]\n\n${body}`, favorite: [0, 2, 105].includes(index), createdAt: index + 1, updatedAt: index + 1 }
+  })
+  const ordered = [...games.slice(0, 106).filter(game => game.favorite), ...games.slice(0, 106).filter(game => !game.favorite)]
+  const expected = records => records.map(game => game.pgn + (games.indexOf(game) < 2 ? '\n*' : '')).join('\n\n') + '\n'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'light'], [844, 390, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', acceptDownloads: true })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), search = dialog.getByRole('searchbox', { name: 'Search saved games', exact: true })
+      const matches = dialog.getByRole('button', { name: /^Export matches \(/ })
+      await dialog.locator('input[type="file"]').setInputFiles({ name: 'collection.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'web-chess-library', version: 1, games })) })
+      await dialog.getByRole('status').filter({ hasText: 'Backup imported.' }).waitFor()
+      assert(await matches.count() === 0, 'an unfiltered shelf offers a redundant selection export')
+      const downloadText = async (button, name, text, keyboard = false) => {
+        await button.focus()
+        const [file] = await Promise.all([page.waitForEvent('download'), keyboard ? page.keyboard.press('Enter') : button.click()])
+        assert(!await file.failure() && new RegExp(`^web-chess-library-${name}\\d{4}-\\d{2}-\\d{2}\\.pgn$`).test(file.suggestedFilename()), 'collection export did not start a named PGN download')
+        assert(fs.readFileSync(await file.path(), 'utf8') === text, 'collection export lost matches, order, notes, variation, setup or game endings')
+        assert(await dialog.getByRole('alert').count() === 0, 'a successful export kept an obsolete error')
+      }
+      await dialog.getByRole('combobox', { name: 'Sort saved games', exact: true }).selectOption('name')
+      await search.fill('Collection')
+      assert(await dialog.locator('.library-row').count() === 100, 'the export fixture is not paginated')
+      await dialog.getByRole('button', { name: 'Show 6 more', exact: true }).waitFor()
+      assert(await matches.innerText() === 'Export matches (106)', 'the export count reports only the mounted page')
+      await downloadText(matches, 'matches-', expected(ordered), true)
+      await dialog.getByRole('status').filter({ hasText: 'Exported 106 matching games as PGN.' }).waitFor()
+      assert(await dialog.locator('.library-row').count() === 100, 'exporting unnecessarily expanded the result list')
+      await dialog.getByRole('button', { name: 'Starred only', exact: true }).click()
+      await downloadText(matches, 'matches-', expected(ordered.filter(game => game.favorite)))
+      await search.fill('Collection 105')
+      await downloadText(matches, 'matches-', expected([games[105]]))
+      await dialog.getByRole('status').filter({ hasText: 'Exported 1 matching game as PGN.' }).waitFor()
+      await search.fill('No matching collection')
+      assert(await matches.isDisabled() && await matches.innerText() === 'Export matches (0)', 'an empty filtered shelf still offers an export')
+      await search.fill('')
+      await downloadText(matches, 'matches-', expected(ordered.filter(game => game.favorite)))
+      // Full exports and backups keep every record, even while favorites filter the list.
+      await downloadText(dialog.getByRole('button', { name: 'Export PGN', exact: true }), '', expected(games))
+      const [backup] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export backup', exact: true }).click()])
+      const originals = JSON.parse(fs.readFileSync(await backup.path(), 'utf8')).games
+      assert(originals.length === games.length && originals.every(record => {
+        const source = games.find(game => game.id === record.id)
+        return source && source.pgn === record.pgn && source.name === record.name && source.favorite === record.favorite
+          && source.createdAt === record.createdAt && source.updatedAt === record.updatedAt
+      }), 'exporting matches altered or omitted saved originals')
+      await page.evaluate(() => {
+        const create = URL.createObjectURL
+        URL.createObjectURL = function () { URL.createObjectURL = create; throw new DOMException('QA selection denied', 'NotAllowedError') }
+      })
+      await matches.focus(); await page.keyboard.press('Enter')
+      const failure = dialog.getByRole('alert').filter({ hasText: 'Try Export matches again.' })
+      await failure.waitFor()
+      assert(await matches.getAttribute('aria-describedby') === await failure.getAttribute('id')
+        && await matches.evaluate(el => el === document.activeElement), 'a failed selection download lost its focused, described retry')
+      await downloadText(matches, 'matches-', expected(ordered.filter(game => game.favorite)), true)
+      await matches.focus()
+      const target = await matches.evaluate(element => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height, visible: rect.top >= 0 && rect.bottom <= innerHeight
+          && element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) }
+      })
+      assert(target.width >= 44 && target.height >= 44 && target.visible, 'selection export is not a reachable 44px target')
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'collection export overflows the viewport')
+      assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1
+        && await page.evaluate(() => window.__uciCommands.every(command => !command.startsWith('go '))), 'collection export moved the board or searched')
+      assert(errors.length === 0, `collection export errors: ${errors.join('; ')}`)
+      await page.screenshot({ path: `/tmp/web-chess-library-matches-${browser.browserType().name()}-${width}-${scale}x.png` })
+      console.log(`  library matching export (${width}×${height}, ${scale}x, ${theme}): all 106 paginated matches in starred/name order; combined and starred-only filters, one/zero matches; Unicode notes/variation/setup/endings; complete exports/backups and originals preserved; denied-download keyboard retry; visible 44px target`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkLibraryStarredFilter(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [901, 2, 'light'], [375, 1, 'dark'], [320, 2, 'light']]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -8177,12 +9042,18 @@ async function checkLibraryStarredFilter(browser) {
       assert(await filter.getAttribute('aria-controls') === await dialog.locator('.library-list').getAttribute('id'), 'starred filter does not identify its list')
       const first = dialog.getByRole('button', { name: 'Unstar Study A', exact: true })
       await first.focus()
-      await first.press('Space')
+      await page.keyboard.down('Enter')
       const second = dialog.getByRole('button', { name: 'Unstar Study B', exact: true })
       await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Unstar Study B')
-      assert(await rows.count() === 1, 'unstarred game remained in the filtered list')
-      await second.press('Enter')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await rows.count() === 1, 'one held unstar press did not remove exactly one game')
+      assert(await second.getAttribute('aria-pressed') === 'true', 'held Enter also unstarred the next game')
+      await page.keyboard.down('Enter')
       await page.waitForFunction(() => document.activeElement?.classList.contains('library-starred-filter'))
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await filter.getAttribute('aria-pressed') === 'true', 'held Enter turned off the filter after removing its last game')
       assert(await rows.count() === 0 && (await results.innerText()).includes('No starred game matches “Study”.'), 'empty starred search is misleading')
       await dialog.getByRole('button', { name: 'Clear saved-game search', exact: true }).click()
       assert((await results.innerText()).includes('No starred games yet.'), 'an empty starred shelf looks like an empty library')
@@ -8219,6 +9090,9 @@ async function checkLibraryStarredFilter(browser) {
       if (width === 320 && scale === 2) assert(await dialog.locator('.library-toolbar').evaluate(element => element.getBoundingClientRect().height < 155), 'starred filter consumes too much enlarged phone reading space')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'starred library overflows the viewport')
       await page.screenshot({ path: `/tmp/web-chess-library-starred-${browser.browserType().name()}-${width}-${scale}x.png` })
+      await page.waitForFunction(() => ![...document.querySelectorAll('.library-dialog .library-status')]
+        .some(el => el.textContent.includes('Saving library changes')))
+      assert(await dialog.getByRole('alert').count() === 0, 'library changes were not acknowledged before reloading')
       await search.fill('Study C')
       await dialog.getByRole('button', { name: 'Load Study C', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
@@ -8226,13 +9100,14 @@ async function checkLibraryStarredFilter(browser) {
       await page.waitForFunction(() => Boolean(localStorage.getItem('webchess:auto-saved-game:v1')))
       await page.reload({ waitUntil: 'domcontentloaded' })
       await page.getByRole('button', { name: 'Restore', exact: true }).click()
+      await waitForBoardPiece(page, 'e5', 'Black pawn')
       await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
       await search.fill('Study C')
       await dialog.getByRole('button', { name: 'Unstar Study C', exact: true }).waitFor()
       await search.fill('Study A')
       await dialog.getByRole('button', { name: 'Star Study A', exact: true }).waitFor()
       assert(errors.length === 0, `starred library errors: ${errors.join('; ')}`)
-      console.log(`  starred library (${width}px, ${scale}x, ${theme}): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload`)
+      console.log(`  starred library (${width}px, ${scale}x, ${theme}): search/sort compose; held Enter preserves the next favorite and filter after focus moves; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload`)
     } finally { await context.close() }
   }
 }
@@ -8435,15 +9310,19 @@ async function checkLibraryEditing(browser) {
       const name = dialog.locator('[data-library-name]')
       await page.waitForFunction(() => document.activeElement?.matches('.library-dialog [data-library-name]'))
       await name.fill('My carefully named game')
-      await name.press('Enter')
+      await dialog.getByRole('button', { name: 'Save', exact: true }).focus()
+      await page.keyboard.press('Enter')
       await dialog.getByRole('alert').filter({ hasText: 'holds 500 games' }).waitFor()
-      assert(await name.inputValue() === 'My carefully named game', 'a rejected save erased the typed game name')
+      assert(await name.inputValue() === 'My carefully named game' && await name.evaluate(el => el === document.activeElement), 'a rejected save erased the typed game name or lost its input focus')
 
       const firstRow = dialog.locator('.library-row').first()
       const original = await firstRow.locator('strong').innerText()
-      await firstRow.getByRole('button', { name: `Rename ${original}`, exact: true }).click()
+      await firstRow.getByRole('button', { name: `Rename ${original}`, exact: true }).focus()
+      await page.keyboard.down('Enter')
       const rename = dialog.getByRole('textbox', { name: 'New game name', exact: true })
       await rename.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
       assert(await rename.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length),
         'rename should focus and select the current name')
       await rename.fill('   ')
@@ -8465,8 +9344,22 @@ async function checkLibraryEditing(browser) {
         })
       }), 'rename controls clip at 200% text')
       await page.evaluate(() => { document.documentElement.style.fontSize = '' })
-      await rename.press('Enter')
+      const composingEnter = await rename.evaluate(el => {
+        const event = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      })
+      assert(composingEnter && await rename.inputValue() === 'My renamed game', 'composing Enter can save a game name')
+      await rename.focus()
+      await page.keyboard.down('Enter')
       await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).waitFor()
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Rename My renamed game')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await rename.count() === 0, 'held Enter reopened the saved-game name editor')
+      await dialog.getByRole('button', { name: 'Rename My renamed game', exact: true }).press('Enter')
+      assert(await rename.inputValue() === 'My renamed game', 'a fresh Enter did not reopen the renamed game')
+      await rename.press('Escape')
       await dialog.getByRole('button', { name: 'Delete Saved game 498', exact: true }).click()
       await page.evaluate(() => {
         const raf = window.requestAnimationFrame
@@ -8504,7 +9397,73 @@ async function checkLibraryEditing(browser) {
       await dialog.getByRole('button', { name: 'Confirm deleting A different title', exact: true }).click()
       await dialog.getByText('No saved game matches “A different title”.', { exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.library-toolbar input[type="search"]') === document.activeElement)
-      console.log(`  library (${width}px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists`)
+      console.log(`  library (${width}px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists; held/composing Enter stays in the current step and a fresh Enter reopens editing`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkLibrarySavedCopyPresence(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, serviceWorkers: 'block', reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('.move-entry summary').click()
+      await page.locator('.move-entry input').fill('e4'); await page.locator('.move-entry input').press('Enter')
+      await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
+      const dialog = page.locator('.library-dialog'), input = dialog.locator('[data-library-name]')
+      const save = dialog.getByRole('button', { name: 'Save', exact: true })
+      const settled = () => dialog.locator('.library-status').filter({ hasText: 'Saving library changes…' }).waitFor({ state: 'detached' })
+      for (const name of ['Older copy', 'Latest copy']) { await input.fill(name); await save.click() }
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 2)
+      await settled()
+      const savedId = await dialog.locator('.library-row').filter({ has: page.getByRole('button', { name: 'Load Latest copy', exact: true }) }).getAttribute('data-library-game-id')
+      const other = await context.newPage()
+      await other.route('**/qa-library-tab.html', route => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Other Library tab</title>' }))
+      await other.goto(`${BASE}qa-library-tab.html`)
+      const deleteFromOtherTab = name => other.evaluate(name => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result, tx = db.transaction('games', 'readwrite'), store = tx.objectStore('games')
+          const read = store.getAll()
+          read.onsuccess = () => read.result.filter(game => game.name === name).forEach(game => store.delete(game.id))
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => { db.close(); reject(tx.error) }
+        }
+      }), name)
+      await deleteFromOtherTab('Older copy')
+      await page.bringToFront()
+      await dialog.getByRole('button', { name: 'Star Latest copy', exact: true }).click()
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 1)
+      await settled()
+      assert(await save.isDisabled() && /already in the library/i.test(await save.getAttribute('title')), 'refreshing an unrelated deletion reset the saved-copy guard')
+      await deleteFromOtherTab('Latest copy')
+      await dialog.getByRole('button', { name: 'Unstar Latest copy', exact: true }).click()
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 0)
+      await settled()
+      assert(await save.isEnabled() && !await save.getAttribute('title'), 'another tab deleted the saved copy, but Save still claims it exists')
+      await save.evaluate(button => { button.click(); button.click(); button.click() })
+      await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 1)
+      await settled()
+      const stored = await other.evaluate(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open('web-chess-library', 1)
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result, read = db.transaction('games', 'readonly').objectStore('games').getAll()
+          read.onsuccess = () => { db.close(); resolve(read.result) }
+          read.onerror = () => { db.close(); reject(read.error) }
+        }
+      }))
+      assert(stored.length === 1 && stored[0].id !== savedId && !['Older copy', 'Latest copy'].includes(stored[0].name)
+        && await save.isDisabled(), 'resaving after another tab’s deletion duplicated or resurrected a saved record')
+      assert(await page.locator('.mtree-chip').count() === 1 && await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1
+        && errors.length === 0, `Library refresh changed the board or errored: ${errors.join('; ')}`)
+      console.log(`  Library saved-copy presence (${width}px, ${scale}x, ${theme}): an unrelated cross-tab deletion preserves the guard; refreshing the latest copy’s deletion enables Save, clears its stale explanation and permits exactly one new record without resurrection`)
     } finally { await context.close() }
   }
 }
@@ -8594,6 +9553,27 @@ async function checkOneGestureSavesOneGame(browser) {
     await page.locator('.library-save-row .btn-start').click()
     await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 3)
     await page.getByRole('button', { name: 'Load Second copy (2)', exact: true }).waitFor()
+    assert(await page.locator('[data-library-name]').evaluate(el => el === document.activeElement), 'saving with the button did not keep focus in the naming field')
+
+    const discard = async (name, remaining) => {
+      await page.getByRole('button', { name: `Delete ${name}`, exact: true }).click()
+      await page.getByRole('button', { name: `Confirm deleting ${name}`, exact: true }).click()
+      await page.waitForFunction(count => document.querySelectorAll('.library-row').length === count, remaining)
+    }
+    const save = page.locator('.library-dialog').getByRole('button', { name: 'Save', exact: true })
+    await discard(afterTriple[0], 2)
+    assert(await save.isDisabled(), 'deleting an unrelated copy reset the duplicate-save guard')
+    await page.getByRole('button', { name: 'Rename Second copy (2)', exact: true }).click()
+    await page.getByRole('textbox', { name: 'New game name', exact: true }).fill('Latest copy renamed ♞')
+    await page.getByRole('button', { name: 'Save name', exact: true }).click()
+    await discard('Latest copy renamed ♞', 1)
+    assert(await save.isEnabled() && !await save.getAttribute('title'), 'deleting the last saved copy left Save disabled or claimed that copy still exists')
+    assert(await clickSaveThrice(), 'the current game cannot be saved again after deleting its latest saved copy')
+    await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 2)
+    await page.locator('.library-status').filter({ hasText: 'Saving library changes…' }).waitFor({ state: 'detached' })
+    const resaved = await names()
+    assert(resaved.length === 2 && resaved.includes('Second copy') && !resaved.includes('Latest copy renamed ♞') && await save.isDisabled(),
+      `resaving after deletion duplicated or resurrected entries: ${JSON.stringify(resaved)}`)
 
     // So is playing on.
     await page.keyboard.press('Escape')
@@ -8603,7 +9583,7 @@ async function checkOneGestureSavesOneGame(browser) {
     await page.waitForTimeout(300)
     assert(await page.evaluate(() => !document.querySelector('.library-save-row .btn-start').disabled),
       'a further move should make the game saveable again')
-    console.log(`  library: three clicks saved one copy, a named copy and a further move both saved again`)
+    console.log(`  library: three clicks save one copy; named copies and a further move can save again; deleting unrelated games retains the guard, deleting the latest saved copy after rename permits exactly one new save`)
   } finally {
     await context.close()
   }
@@ -8950,6 +9930,127 @@ async function checkAutoSaveCursor(browser) {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'cursor recovery overflows')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `cursor recovery errors: ${errors.join('; ')}`)
       console.log(`  autosave cursor (${width}×${height}, ${scale}x, ${theme}): immediate reload keeps takeback/root/variation positions, paused clock/session and exact complete game/notes; selected note follows its branch; legacy, malformed and outdated routes retain normal recovery`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkVariationExpansion(browser) {
+  const pgn = '1. e4 e5 2. Nf3 (2. Nc3 Nf6 3. f4 d5 4. fxe5 Nxe4 5. Nf3 Bc5 6. d4 {Deep variation note}) (2. Bc4 Nf6 3. d3 Bc5 4. Nc3 d6 5. Nf3 Nc6 6. O-O) Nc6 *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const importGame = async text => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(text)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      }
+      const copyPgn = async () => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const dialog = page.locator('.pgn-dialog')
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+        await dialog.getByRole('checkbox', { name: 'Engine evals', exact: true }).uncheck()
+        const text = await dialog.getByRole('textbox', { name: 'Annotated Output', exact: true }).inputValue()
+        await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        return text
+      }
+      await importGame(pgn)
+      const original = await copyPgn()
+      const toggle = page.getByRole('button', { name: /variation starting with 2\. Nc3$/ })
+      const other = page.getByRole('button', { name: /variation starting with 2\. Bc4$/ })
+      const last = page.getByRole('button', { name: /^Go to variation move 6\. d4,/ })
+      assert(await last.count() === 0 && await toggle.innerText() === '+3 more', 'the variation is not initially a counted preview')
+      await toggle.focus()
+      await page.keyboard.press('Enter')
+      await last.waitFor()
+      assert(await toggle.getAttribute('aria-expanded') === 'true' && await toggle.evaluate(e => e === document.activeElement), 'keyboard expansion lost state or focus')
+      assert(await other.getAttribute('aria-expanded') === 'false' && await page.getByRole('button', { name: /^Go to variation move 6\. O-O/ }).count() === 0, 'expanding one variation expanded its sibling')
+      await toggle.press('Space')
+      assert(await last.count() === 0 && await toggle.evaluate(e => e === document.activeElement), 'keyboard collapse did not restore the preview and focus')
+      await toggle.click()
+      await last.click()
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Deep variation note', 'the expanded move does not navigate to its own note')
+      await toggle.click()
+      assert(await last.getAttribute('aria-current') === 'step', 'collapsing hid the selected deep move')
+      assert(await toggle.evaluate(e => e === document.activeElement), 'collapse at the selected final move lost focus')
+      await page.getByRole('button', { name: /^Go to move 2\.\.\. Nc6/ }).click()
+      assert(await last.count() === 0, 'the collapsed preview stayed expanded after returning to the main line')
+      assert(await copyPgn() === original, 'reading a variation changed its exported PGN')
+      await toggle.click()
+      await page.screenshot({ path: `/tmp/web-chess-variation-${browser.browserType().name()}-${width}.png`, fullPage: true })
+      if (width <= 900) {
+        const box = await toggle.boundingBox()
+        assert(meetsTouchTarget(box.height) && meetsTouchTarget(box.width), 'the expansion control is too small to tap')
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded variations overflow the document')
+      await importGame(pgn)
+      assert(await toggle.getAttribute('aria-expanded') === 'false' && await last.count() === 0, 'a replacement game inherited the previous expansion')
+      assert(errors.length === 0, `variation expansion errors: ${errors.join('; ')}`)
+      console.log(`  variation expansion (${width}×${height}, ${scale}x, ${theme}): keyboard/pointer expand and collapse, independent branches, retained focus/current move/note, unchanged PGN, fresh game reset and fitting touch control`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkDeepVariationNavigation(browser) {
+  const pgn = 'a3 (Nf3 a6 (Nf6 a3 (Ng1 a6 (Ng8 a3 (Nf3 a6 (Nf6 a3 (Ng1 a6 (Ng8 b3 {Deepest knight study})))))))) *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill(pgn)
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      const openWhite = page.getByRole('button', { name: 'Open deeper line starting with 4. Ng1', exact: true })
+      const openBlack = page.getByRole('button', { name: 'Open deeper line starting with 4... Ng8', exact: true })
+      const white = page.getByRole('button', { name: /^Go to variation move 4\. Ng1/ })
+      const last = page.getByRole('button', { name: /^Go to variation move 5\. b3/ })
+      assert(await last.count() === 0, 'an unselected deeply nested line is rendered in full')
+      if (width <= 900) {
+        const box = await openWhite.boundingBox()
+        assert(meetsTouchTarget(box.height) && meetsTouchTarget(box.width), 'the deeper-line control is too small to tap')
+      }
+      await openWhite.focus()
+      await page.keyboard.press('Enter')
+      await white.waitFor()
+      assert(await white.getAttribute('aria-current') === 'step', 'opening the deep line did not expose its current move')
+      if (width > 900) assert(await white.evaluate(e => e === document.activeElement), 'the replaced deep-line trigger lost keyboard focus')
+      await openBlack.focus()
+      await page.keyboard.press('Space')
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      await last.waitFor()
+      assert(await last.getAttribute('aria-current') === 'step' && await page.locator('.mtree-chip[aria-current]').count() === 1, 'the deepest selected move has no unique current marker')
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Deepest knight study', 'the deep-line action opened the wrong note')
+      const main = page.getByRole('button', { name: /^Go to move 1\. a3(?:,|$)/ })
+      await main.click()
+      assert(await last.count() === 0 && await openWhite.count() === 1, 'leaving the deep line did not restore its bounded preview')
+      // Enter the same line through ordinary move/sibling shortcuts. Its
+      // current marker must also survive navigation that bypasses the opener.
+      for (let ply = 0; ply < 8; ply++) {
+        await page.keyboard.press('ArrowDown')
+        await page.keyboard.press('ArrowRight')
+      }
+      assert(await last.getAttribute('aria-current') === 'step', 'keyboard navigation past the nesting cap hid the current move')
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Deepest knight study', 'keyboard navigation selected the wrong deep line')
+      await last.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-deep-variation-${browser.browserType().name()}-${width}.png`, fullPage: true })
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'deep variation controls overflow the document')
+      assert(errors.length === 0, `deep variation errors: ${errors.join('; ')}`)
+      console.log(`  deep variations (${width}×${height}, ${scale}x, ${theme}): bounded unselected previews; named Enter/Space actions and focus handoff; deepest move, unique current marker and note survive ordinary keyboard navigation; leaving restores the preview`)
     } finally { await context.close() }
   }
 }
@@ -9630,7 +10731,7 @@ async function checkTheThreatProbeAsksTheOtherSide(browser) {
                                null, { timeout: 20000 })
     await page.waitForTimeout(800)
 
-    const ask = page.getByRole('button', { name: 'Show what the opponent is threatening' })
+    const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/ })
     assert(await ask.count() === 1, 'the Coach card offers no way to ask what is threatened')
 
     const boardFen = await page.evaluate(() => {
@@ -10393,7 +11494,7 @@ async function checkPaletteDialogReturn(browser) {
           await page.locator('.move-entry input').fill('e4')
         }
         if (via === 'graph') {
-          const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+          const run = page.getByRole('button', { name: 'Analyze position', exact: true })
           await run.click()
           await page.waitForFunction(() => window.__uciBestmoves >= 1)
           await page.locator('#chessboard-square-e2').click(); await page.locator('#chessboard-square-e4').click()
@@ -10434,8 +11535,68 @@ async function checkPaletteDialogReturn(browser) {
   }
 }
 
+async function checkDialogCloseRepeats(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const overlays = [
+        ['Start new game', '.new-game-dialog', 'Cancel'],
+        ['Open PGN and FEN dialog', '.pgn-dialog', 'Cancel'],
+        ['Open saved games library', '.library-dialog', 'Done'],
+        ['Open the Commands palette', '.command-palette', 'Close Commands'],
+      ]
+      for (const [name, selector, close] of overlays) {
+        const opener = page.getByRole('button', { name, exact: true }), panel = page.locator(selector)
+        await opener.focus(); await page.keyboard.press('Enter'); await panel.waitFor()
+        await page.waitForFunction(selector => document.querySelector(selector)?.contains(document.activeElement), selector)
+        await panel.getByRole('button', { name: close, exact: true }).focus()
+        await page.keyboard.down('Enter'); await panel.waitFor({ state: 'detached' })
+        await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === name, name)
+        await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await frames()
+        assert(await panel.count() === 0 && await opener.evaluate(el => el === document.activeElement), `${name}: holding its close action reopened the dialog or lost opener focus`)
+        await page.keyboard.up('Enter')
+        await page.keyboard.press('Enter'); await panel.waitFor()
+        await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' })
+        await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === name, name)
+      }
+      const settings = page.getByRole('button', { name: 'Open settings', exact: true }), body = page.locator('.settings-body')
+      await settings.focus(); await page.keyboard.down('Enter'); await body.waitFor()
+      const done = body.getByRole('button', { name: 'Done', exact: true })
+      if (await done.isVisible()) {
+        await page.keyboard.up('Enter'); await done.focus(); await page.keyboard.down('Enter')
+      } else await page.keyboard.press('Escape')
+      await body.waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open settings')
+      await page.keyboard.down('Enter'); await frames()
+      assert(await body.count() === 0 && await settings.evaluate(el => el === document.activeElement), 'held Enter reopened Settings after it returned to the native summary')
+      await page.keyboard.up('Enter')
+      await page.keyboard.press('Enter'); await body.waitFor()
+      await page.keyboard.press('Escape'); await body.waitFor({ state: 'detached' })
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'closing dialogs changed the board')
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill('1. e4 e5 2. Nf3 Nc6 *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).focus()
+      await page.keyboard.down('Enter'); await waitForBoardPiece(page, 'e4', 'White pawn')
+      await page.keyboard.down('Enter'); await waitForBoardPiece(page, 'e5', 'Black pawn')
+      await page.keyboard.up('Enter')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `dialog close repeat errors or overflow: ${errors.join('; ')}`)
+      console.log(`  dialog close repeats (${width}px, ${scale}x, ${theme}): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkDialogFocusHandoff(browser) {
-  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2]]) {
+  for (const [width, scale] of [[1280, 1], [375, 1], [375, 2], [320, 2]]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
@@ -10456,7 +11617,7 @@ async function checkDialogFocusHandoff(browser) {
       await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const preview = page.locator('.coach-line-moves .pv-move').first()
       const opener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
       await preview.waitFor(); await preview.focus()
@@ -10487,7 +11648,161 @@ async function checkDialogFocusHandoff(browser) {
       assert(await page.locator('.new-game-dialog').evaluate(el => el.contains(document.activeElement)), 'old dialog restoration moved focus out of the newer modal')
       await page.keyboard.press('Escape')
       await page.locator('.dialog-panel').waitFor({ state: 'detached' })
-      console.log(`  dialog focus handoff (${width}px, ${scale}x): explicit opener restored; held callbacks yield to a newer preview and modal`)
+      const newGame = page.getByRole('button', { name: 'Start new game', exact: true })
+      await newGame.focus(); await newGame.press('Enter')
+      const dialog = page.locator('.new-game-dialog')
+      await dialog.waitFor()
+      await dialog.locator('.mode-card').filter({ hasText: 'Human vs Human' }).click()
+      await dialog.locator('.time-control-card').filter({ hasText: '3 + 2' }).click()
+      await dialog.locator('.btn-start').focus(); await page.keyboard.down('Enter')
+      await dialog.waitFor({ state: 'detached' })
+      await page.waitForFunction(() => document.activeElement?.matches('.board-stage'))
+      await page.waitForFunction(() => {
+        const board = document.querySelector('.board-surface').getBoundingClientRect()
+        const frame = document.querySelector('.main-container').getBoundingClientRect()
+        return board.top >= Math.max(0, frame.top) - 1 && board.bottom <= Math.min(innerHeight, frame.bottom) + 1
+          && board.left >= 0 && board.right <= innerWidth + 1
+      })
+      await page.keyboard.down('Enter'); await page.keyboard.up('Enter'); await frames()
+      assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('[role="dialog"]').count() === 0
+        && await page.locator('.clock-face.running').count() === 1, 'held game confirmation moved a piece, reopened a dialog or stopped the starting clock')
+      await page.keyboard.press('Tab')
+      assert(await page.locator('.board-stage').evaluate(el => el.contains(document.activeElement)), 'Tab after starting a game returned to the top of the page')
+      console.log(`  dialog focus handoff (${width}px, ${scale}x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock`)
+    } finally { await context.close() }
+  }
+}
+
+async function checkPreviewMaterial(browser) {
+  const cases = [
+    ['7k/8/8/3p4/4P3/8/8/7K w - - 0 1', 'e4d5', null, ['White +1']],
+    ['7k/8/8/4p3/3P4/8/8/7K b - - 0 1', 'e5d4', null, ['Black +1']],
+    ['7k/8/8/4p3/3P4/8/P7/7K w - - 0 1', 'a2a3 e5d4', 'White +1', ['White +1', null]],
+  ]
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    for (const [fen, pv, original, expected] of cases) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ pv, theme }) => {
+          window.__previewEndingPv = pv
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', theme }))
+        }, { pv, theme })
+        await page.goto(`${BASE}#fen=${encodeURIComponent(fen)}`, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const material = page.locator('.board-meta-material')
+        const assertMaterial = async (label, stage) => {
+          if (label === null) assert(await material.count() === 0, `${stage}: equal material still shows an advantage`)
+          else assert(await material.count() === 1 && (await material.locator('[aria-hidden="true"]').textContent()).trim() === label,
+            `${stage}: material does not describe the displayed board (expected ${label}, found ${(await material.allTextContents()).join(' ') || 'none'})`)
+        }
+        await assertMaterial(original, 'initial position')
+        const analyze = page.getByRole('button', { name: 'Analyze position', exact: true })
+        await analyze.click()
+        const moves = page.locator('.coach-line-moves .pv-move')
+        await moves.first().waitFor()
+        await page.mouse.move(1, 1)
+        const chess = new (require('chess.js').Chess)(fen)
+        const uciMoves = pv.split(' ')
+        for (let index = 0; index < uciMoves.length; index++) {
+          const uci = uciMoves[index]
+          const move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+          await moves.nth(index).focus()
+          await page.locator('.board-meta-preview').waitFor()
+          await page.locator(`#chessboard-square-${move.to} [data-piece="${move.color}${move.piece.toUpperCase()}"]`).waitFor()
+          await assertMaterial(expected[index], `preview ${index + 1}`)
+          assert(await page.locator('.mtree-chip').count() === 0, 'inspecting material committed a preview move')
+          await analyze.focus()
+          await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+          await assertMaterial(original, 'restored position')
+        }
+        await moves.last().hover()
+        await page.locator('.board-meta-preview').waitFor()
+        await assertMaterial(expected.at(-1), 'pointer preview')
+        if (width === 375 && pv === 'e4d5') {
+          await material.scrollIntoViewIfNeeded()
+          await page.screenshot({ path: `/tmp/web-chess-preview-material-${browser.browserType().name()}-phone.png`, fullPage: true })
+        }
+        await moves.last().click()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        await assertMaterial(expected.at(-1), 'committed line')
+        assert(await page.locator('.mtree-chip').count() === uciMoves.length, 'committing the preview recorded the wrong line')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'preview material overflows the document')
+        assert(errors.length === 0, `preview material errors: ${errors.join('; ')}`)
+        console.log(`  preview material (${width}×${height}, ${scale}x, ${theme}, ${pv}): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line`)
+      } finally { await context.close() }
+    }
+  }
+}
+
+async function checkCaptureDescriptions(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const load = async (fen, moves = '') => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(`[SetUp "1"]\n[FEN "${fen}"]\n\n${moves} *`)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      }
+      const detail = () => page.locator('.board-meta-material').getAttribute('title')
+      const whiteRoot = '8/P6k/8/8/8/8/7K/8 w - - 0 1'
+      await load(whiteRoot, '1. a8=Q (1. a8=N)')
+      assert(await detail() === 'White is up 9.', 'quiet promotion invents a captured pawn')
+      await page.getByRole('button', { name: /^Go to variation move 1\. a8=N/ }).click()
+      assert(await detail() === 'White is up 3.', 'underpromotion variation invents a capture or uses main-line material')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await detail() === 'White is up 1.', 'returning to the root retained variation captures')
+      await load('7k/8/8/8/8/8/p6K/8 b - - 0 1', '1... a1=N')
+      assert(await detail() === 'Black is up 3.', 'Black underpromotion invents a captured pawn')
+
+      const root = '1rk5/P7/8/8/8/8/7P/7K w - - 0 1'
+      const promoted = 'White is up 10. White has taken a rook; Black has taken nothing.'
+      const captured = 'White is up 1. White has taken a rook; Black has taken a queen.'
+      await load(root, '1. axb8=Q+ Kxb8')
+      assert(await detail() === captured, 'a captured promoted queen is reported as a pawn')
+      await page.getByRole('button', { name: 'Go to previous move', exact: true }).click()
+      assert(await detail() === promoted, 'navigating back retained a future capture')
+      await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+      assert(await detail() === 'Black is up 3.', 'a custom starting position inherits future captures')
+      await load('7k/8/8/3pP3/8/8/8/7K w - d6 0 1', '1. exd6')
+      assert(await detail() === 'White is up 1. White has taken a pawn; Black has taken nothing.', 'en passant is not recorded as a pawn capture')
+
+      const analyze = page.getByRole('button', { name: 'Analyze position', exact: true })
+      const preview = page.locator('.coach-line-moves .pv-move')
+      for (const [fen, moves, pv, before, after, count] of [
+        [whiteRoot, '', 'a7a8q', 'White is up 1.', 'White is up 9.', 0],
+        [root, '', 'a7b8q c8b8', 'Black is up 3.', captured, 0],
+        [root, '1. axb8=Q+', 'c8b8', promoted, captured, 1],
+      ]) {
+        await page.evaluate(pv => { window.__previewEndingPv = pv }, pv)
+        await load(fen, moves)
+        assert(await detail() === before, 'the preview fixture has incorrect starting captures')
+        await analyze.click()
+        await page.waitForFunction(count => document.querySelectorAll('.coach-line-moves .pv-move').length === count, pv.split(' ').length)
+        await page.mouse.move(1, 1)
+        await preview.last().focus()
+        await page.locator('.board-meta-preview').waitFor()
+        assert(await detail() === after, `preview capture description is incorrect for ${pv}: ${await detail()}`)
+        assert(await page.locator('.mtree-chip').count() === count, 'capture inspection changed the game tree')
+        await analyze.focus()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        assert(await detail() === before, 'leaving the preview retained its captures')
+        await preview.last().click()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        assert(await detail() === after, 'committing a promotion preview counted captures twice or lost earlier captures')
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'capture descriptions overflow the document')
+      assert(errors.length === 0, `capture description errors: ${errors.join('; ')}`)
+      console.log(`  capture descriptions (${width}×${height}, ${scale}x, ${theme}): quiet White/Black promotions, underpromotion branch, captured promoted queen, root/back navigation, en passant and complete preview prefixes retain the actual captures through blur/commit`)
     } finally { await context.close() }
   }
 }
@@ -10513,7 +11828,7 @@ async function checkPreviewEndingFeedback(browser) {
         await page.locator('#chessboard-square-a1').waitFor()
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
         const originalLabel = await page.locator('.turn-pill').textContent()
-        const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+        const analyze = page.getByRole('button', { name: 'Analyze position', exact: true })
         await analyze.click()
         const preview = page.locator('.coach-line-moves .pv-move').first()
         await preview.waitFor()
@@ -10638,10 +11953,17 @@ async function checkWatchTabTitle(browser) {
           await page.getByRole('button', { name: 'Resume AI play', exact: true }).waitFor()
           await waitTitle('AI paused')
           await page.evaluate(() => { window.__previewEndingPv = 'e7e5' })
-          await page.getByRole('button', { name: 'Resume AI play', exact: true }).press('Enter')
+          await page.getByRole('button', { name: 'Resume AI play', exact: true }).focus()
+          await page.keyboard.down('Enter')
           await waitTitle('Engine thinking')
-          await page.getByRole('button', { name: 'Pause AI', exact: true }).press('Enter')
+          await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+          await waitTitle('Engine thinking')
+          assert(await page.getByRole('button', { name: 'Pause AI', exact: true }).evaluate(el => el === document.activeElement), 'held AI Resume lost its focused pause action')
+          await page.keyboard.down('Enter')
           await waitTitle('AI paused')
+          await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+          await waitTitle('AI paused')
+          assert(await page.getByRole('button', { name: 'Resume AI play', exact: true }).evaluate(el => el === document.activeElement), 'held AI Pause lost its focused resume action')
           await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
           await waitTitle('AI waiting for Step')
           for (let failure = 0; failure < 2; failure++) {
@@ -10674,7 +11996,7 @@ async function checkWatchTabTitle(browser) {
           assert(await page.title() === 'Web Chess', 'pass-and-play retained the previous watch status')
         }
         assert(errors.length === 0 && await page.locator('.app-error-shell').count() === 0, `watch title errors: ${errors.join('; ')}`)
-        console.log(`  watch title (${width}×${height}, ${scale}x, ${scenario}): ${scenario === 'slow-boot' ? 'loading, Step, thinking, pause, resume, runtime fallback/failure/retry; retained move and cleared status on pass-and-play' : 'failed startup reports unavailable without inventing a move'}`)
+        console.log(`  watch title (${width}×${height}, ${scale}x, ${scenario}): ${scenario === 'slow-boot' ? 'loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play' : 'failed startup reports unavailable without inventing a move'}`)
       } finally { await context.close() }
     }
   }
@@ -10695,7 +12017,7 @@ async function checkOpeningRequestRetry(browser) {
           const url = new URL(typeof input === 'string' ? input : input.url || String(input), location.href)
           if (url.hostname !== 'explorer.lichess.org') return before(input, init)
           const n = window.__openingRetryRequests.push(url.href)
-          if (n === 1) return Promise.resolve(new Response('Temporary failure', { status: 503 }))
+          if (n === 1) return Promise.resolve(new Response('Rejected fixture token', { status: 401 }))
           return new Promise(resolve => window.__openingRetryReplies.set(n, status => resolve(new Response(JSON.stringify({
             white: 100 + n, draws: 10, black: 20, opening: { eco: 'A00', name: `Retry fixture ${n}` },
             moves: [{ uci: 'e2e4', san: 'e4', white: 100 + n, draws: 10, black: 20, averageRating: 2400 }],
@@ -10712,15 +12034,16 @@ async function checkOpeningRequestRetry(browser) {
       await token.fill('fixture-only')
       await retry.waitFor()
       assert(await retry.evaluate(el => el.getBoundingClientRect().height >= 43.75), 'opening retry has a small touch target')
-      await retry.evaluate(el => { el.click(); el.click() })
+      await token.fill('corrected-fixture')
       await page.waitForFunction(() => window.__openingRetryReplies.has(2))
-      assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'opening retry kept the old error/action')
-      assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'opening retry lost keyboard focus')
-      assert(await page.evaluate(() => window.__openingRetryRequests.length) === 2, 'duplicate opening retry requests')
+      assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0
+        && (await card.getByRole('status').textContent()).includes('Loading opening database'), 'the new token request kept the old rejection instead of loading feedback')
+      assert(await token.evaluate(el => el === document.activeElement), 'correcting the token lost keyboard focus')
+      assert(await page.evaluate(() => window.__openingRetryRequests.length) === 2, 'duplicate opening token requests')
       await page.evaluate(() => window.__openingRetryReplies.get(2)(503))
       await retry.waitFor()
-      assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'repeated opening failure lost focus')
-      await retry.click()
+      assert(await token.evaluate(el => el === document.activeElement), 'the corrected-token response stole focus')
+      await retry.evaluate(el => { el.click(); el.click() })
       await page.waitForFunction(() => window.__openingRetryReplies.has(3))
       await card.getByRole('button', { name: 'Lichess', exact: true }).click()
       await page.evaluate(() => window.__openingRetryReplies.get(3)(200))
@@ -10734,7 +12057,7 @@ async function checkOpeningRequestRetry(browser) {
       await page.evaluate(() => window.__openingRetryReplies.get(5)(200))
       await card.getByRole('status').filter({ hasText: 'Retry fixture 5' }).waitFor()
       assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'opening success kept its failure UI')
-      assert(await token.inputValue() === 'fixture-only', 'opening retry changed the token')
+      assert(await token.inputValue() === 'corrected-fixture', 'opening retry changed the corrected token')
       assert(await card.getByRole('button', { name: 'Lichess', exact: true, pressed: true }).count() === 1
         && await page.getByRole('combobox', { name: 'Opening rating bucket' }).inputValue() === rating, 'opening retry changed filters')
       assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'opening retry moved a piece')
@@ -10744,7 +12067,7 @@ async function checkOpeningRequestRetry(browser) {
       }), 'opening success left its focused status covered or off screen')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'opening retry overflows enlarged text')
       if (width === 375) await page.screenshot({ path: path.join(os.tmpdir(), 'web-chess-opening-retry-200.png') })
-      console.log(`  opening retry (${width}px, ${scale}x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery`)
+      console.log(`  opening retry (${width}px, ${scale}x): token gate, correction shows loading without losing focus, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery`)
     } finally { await context.close() }
   }
 }
@@ -10866,9 +12189,30 @@ async function checkHeldToggleShortcuts(browser) {
       assert(await page.locator('.clock-paused').count() === 1 && await page.locator('.clock-face.running').count() === 0, 'holding Space resumed the paused game clock')
       await page.keyboard.press('Space')
       await page.locator('.clock-face.clock-white.running').waitFor()
+      for (const mode of ['Human vs Human', 'Human vs AI']) {
+        if (mode === 'Human vs AI') await startGameMode(page, mode)
+        const pauseName = mode === 'Human vs Human' ? 'Pause clock' : 'Pause AI'
+        const resumeName = mode === 'Human vs Human' ? 'Resume clock' : 'Resume AI play'
+        const pause = () => page.getByRole('button', { name: pauseName, exact: true })
+        const resume = () => page.getByRole('button', { name: resumeName, exact: true })
+        await pause().focus()
+        await page.keyboard.down('Enter'); await resume().waitFor()
+        await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+        assert(await resume().count() === 1 && await resume().evaluate(el => el === document.activeElement)
+          && await page.locator('.clock-face.running').count() === 0, `held ${pauseName} resumed the game or lost focus`)
+        const stopped = await page.locator('.clock-face strong').allTextContents()
+        await page.waitForTimeout(1100)
+        assert(JSON.stringify(await page.locator('.clock-face strong').allTextContents()) === JSON.stringify(stopped), `${pauseName} left the banks counting`)
+        await page.keyboard.down('Enter'); await pause().waitFor()
+        await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+        assert(await pause().count() === 1 && await pause().evaluate(el => el === document.activeElement)
+          && await page.locator('.clock-face.clock-white.running').count() === 1, `held ${resumeName} paused the game again or lost focus`)
+        await page.keyboard.press('Enter'); await resume().waitFor()
+        assert(await page.locator('.clock-face.running').count() === 0, `a fresh Enter failed to pause ${mode}`)
+      }
       const repeats = await page.evaluate(() => window.__heldRepeats)
       assert(['f', ' ', 'ArrowRight', 'k'].every(key => repeats.includes(key)), `the browser did not generate the expected repeated keydowns: ${repeats}`)
-      console.log(`  held shortcuts (${width}px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat`)
+      console.log(`  held shortcuts (${width}px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat`)
     } finally { await context.close() }
   }
 }
@@ -10962,10 +12306,12 @@ async function checkTablebaseMoveReading(browser) {
         if (width === 320) await assertContrast(page, `tablebase moves / ${experience} / 200% text`, 5)
         if (width === 320) await page.screenshot({ path: path.join(os.tmpdir(), `web-chess-tablebase-moves-${experience}-200.png`) })
         await rows.first().press('Enter')
+        await page.waitForFunction(() => window.__uciCommands.some(c => c.startsWith('go ') && c.endsWith('searchmoves a7b8q')))
+        await page.getByTestId('candidate-search-notice').waitFor()
         assert(await page.locator('#chessboard-square-a7 [data-piece="wP"]').count() === 1, 'selecting a tablebase move unexpectedly played it')
         await openSettings(page)
         assert(await page.getByLabel('Candidate moves', { exact: true }).inputValue() === 'a7b8q', 'tablebase move did not restrict engine analysis')
-        console.log(`  tablebase move reading (${width}px, ${scale}x, ${experience}): full SAN/verdict/distances, 44px targets, keyboard selection restricts analysis`)
+        console.log(`  tablebase move reading (${width}px, ${scale}x, ${experience}): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis`)
       } finally { await context.close() }
     }
   }
@@ -11165,6 +12511,244 @@ async function checkTheTablebaseAnswersForThisPosition(browser) {
  * difference is where a wire gets crossed: Lichess answers one request with
  * the games, and chess.com answers two -- a list of months, then a month.
  */
+async function checkArchiveKeyboardFetch(browser) {
+  const pgn = '[Event "Archive keyboard QA"]\n[White "Reader"]\n[Black "Opponent"]\n[Result "*"]\n\n1. e4 e5 *'
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    for (const source of ['Lichess', 'Chess.com']) {
+      const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ pgn, theme }) => {
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+          window.__archiveKeyRequests = []
+          const native = window.fetch
+          window.fetch = (input, init) => {
+            const url = new URL(typeof input === 'string' ? input : input.url, location.href)
+            const lichess = url.hostname === 'lichess.org' && url.pathname.startsWith('/api/games/user/')
+            const chesscom = url.hostname === 'api.chess.com' && url.pathname.endsWith('/games/archives')
+            if (lichess || chesscom) return new Promise((resolve, reject) => {
+              const entry = { url: url.href, aborted: false, release: () => resolve(new Response(chesscom
+                ? JSON.stringify({ archives: ['https://api.chess.com/pub/player/reader/games/2026/10'] }) : pgn,
+                { headers: { 'Content-Type': chesscom ? 'application/json' : 'application/x-chess-pgn' } })) }
+              window.__archiveKeyRequests.push(entry)
+              init?.signal?.addEventListener('abort', () => { entry.aborted = true; reject(new DOMException('Aborted', 'AbortError')) }, { once: true })
+            })
+            if (url.hostname === 'api.chess.com' && url.pathname.endsWith('/pgn')) return Promise.resolve(new Response(pgn))
+            return native(input, init)
+          }
+        }, { pgn, theme })
+        await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        for (const square of ['e2', 'e4']) await page.locator(`#chessboard-square-${square}`).click()
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.archive-source-row').getByRole('button', { name: source, exact: true }).click()
+        const user = page.getByRole('textbox', { name: `Your ${source} username`, exact: true })
+        const count = page.getByRole('spinbutton', { name: 'Games', exact: true })
+        const text = page.locator('.pgn-dialog textarea')
+        await text.fill('1. d4 *')
+        await user.fill(''); await count.focus()
+        assert(await user.getAttribute('aria-invalid') !== 'true', 'an unused optional archive field is marked invalid on blur')
+        await user.press('Enter')
+        assert(await user.getAttribute('aria-invalid') === 'true'
+          && await user.evaluate(el => Boolean(document.getElementById(el.getAttribute('aria-describedby'))?.textContent))
+          && await text.getAttribute('aria-invalid') !== 'true', 'an empty submitted username lacks associated guidance or incorrectly marks the PGN draft invalid')
+        const profile = source === 'Lichess' ? 'lichess.org/@/reader' : 'chess.com/member/reader'
+        for (const invalid of [`https://not${profile}`, `https://example.org/${profile}`, `https://example.org/?profile=https://${profile}`]) {
+          await user.fill(invalid); await user.press('Enter')
+          assert(await user.inputValue() === invalid && await user.getAttribute('aria-invalid') === 'true'
+            && await page.getByRole('button', { name: 'Fetch', exact: true }).isDisabled()
+            && await page.evaluate(() => window.__archiveKeyRequests.length) === 0
+            && await text.inputValue() === '1. d4 *' && await text.getAttribute('aria-invalid') !== 'true', 'an unrelated profile-looking link fetched an invented username or changed/invalidated the PGN draft')
+        }
+        await text.fill('4k3/8/8/8/8/8/8/4K3 w - - 0 1'); await user.press('Enter')
+        assert(await text.getAttribute('aria-invalid') === 'true'
+          && await page.getByRole('button', { name: 'Import & Analyze', exact: true }).isDisabled(), 'an invalid archive submission erased the separate PGN validation error')
+        await text.fill('1. d4 *')
+        await user.fill(`https://www.${profile}/games?view=all#latest`)
+        await count.fill('20')
+        const ignored = await count.evaluate(el => [
+          { isComposing: true }, { keyCode: 229 }, { repeat: true },
+        ].map(init => { const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init }); el.dispatchEvent(event); return event.defaultPrevented }))
+        assert(!ignored[0] && !ignored[1] && ignored[2], 'composing/repeated count Enter is not handled correctly')
+        assert(await page.evaluate(() => window.__archiveKeyRequests.length) === 0, 'composing or held Enter fetched games')
+        await count.press('Enter')
+        await page.waitForFunction(() => window.__archiveKeyRequests.length === 1)
+        await page.getByRole('button', { name: 'Cancel fetch', exact: true }).waitFor()
+        for (const field of [user, user, count]) await field.press('Enter')
+        assert(await page.evaluate(() => window.__archiveKeyRequests.length === 1 && !window.__archiveKeyRequests[0].aborted), 'busy Enter canceled or restarted the request')
+        assert(await text.inputValue() === '1. d4 *', 'a pending request changed the import draft')
+        const cancel = page.getByRole('button', { name: 'Cancel fetch', exact: true })
+        const held = await cancel.evaluate(el => { const event = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true }); el.dispatchEvent(event); return event.defaultPrevented })
+        assert(held && await page.evaluate(() => !window.__archiveKeyRequests[0].aborted), 'held Enter activated Cancel fetch')
+        await page.evaluate(() => window.__archiveKeyRequests[0].release())
+        await page.locator('.pgn-import-status').filter({ hasText: 'Fetched 1 game for reader.' }).waitFor()
+        assert(await text.inputValue() === pgn && await count.inputValue() === '20', 'count Enter fetched the wrong game or changed its count')
+        assert(await count.evaluate(el => el === document.activeElement), 'fetch completion stole the count field focus')
+        assert(await page.locator('#chessboard-square-e7 [data-piece="bP"]').count() === 1, 'fetching replaced the current game before Import')
+        await user.press('Enter')
+        await page.waitForFunction(() => window.__archiveKeyRequests.length === 2)
+        await cancel.click()
+        assert(await page.evaluate(() => window.__archiveKeyRequests[1].aborted) && await text.inputValue() === pgn, 'explicit cancellation stopped working or changed the import text')
+        await count.fill('99')
+        await count.press('Enter')
+        await page.waitForFunction(() => window.__archiveKeyRequests.length === 3)
+        assert(await count.inputValue() === '50', 'count Enter bypassed normalization')
+        if (source === 'Lichess') assert(await page.evaluate(() => new URL(window.__archiveKeyRequests[2].url).searchParams.get('max')) === '50', 'normalized count did not reach the request')
+        await page.evaluate(() => window.__archiveKeyRequests[2].release())
+        await page.locator('.pgn-import-status').filter({ hasText: 'Fetched 1 game for reader.' }).waitFor()
+        await count.dispatchEvent('keydown', { key: 'Enter', repeat: true })
+        assert(await page.evaluate(() => window.__archiveKeyRequests.length) === 3, 'held Enter started a fresh fetch after completion')
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+        await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'archive keyboard workflow overflows')
+        assert(errors.length === 0, `archive keyboard errors: ${errors.join('; ')}`)
+        console.log(`  archive keyboard (${width}px, ${scale}x, ${theme}, ${source}): similar-host/embedded links are refused without requests or draft changes; real profile links normalize; count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import`)
+      } finally { await context.close() }
+    }
+  }
+}
+
+async function checkArchivePreferences(browser) {
+  const key = 'webchess:archive-preferences:v1'
+  const pgn = '[Event "Archive preferences"]\n[White "Reader"]\n[Black "Opponent"]\n\n1. e4 e5 *'
+  for (const [width, scale, theme, seed, blocked] of [
+    [1280, 1, 'dark', 'malformed', false], [375, 1, 'light', 'empty', false],
+    [320, 2, 'dark', 'saved', false], [375, 2, 'light', 'empty', true],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(({ key, pgn, theme, seed, blocked }) => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+        if (!sessionStorage.getItem('qa-archive-preferences-seeded')) {
+          sessionStorage.setItem('qa-archive-preferences-seeded', 'true')
+          if (seed === 'malformed') localStorage.setItem(key, JSON.stringify({ source: 'unknown', count: '7', usernames: { lichess: '../admin', chesscom: 42 } }))
+          if (seed === 'saved') localStorage.setItem(key, JSON.stringify({ source: 'chesscom', count: 8, usernames: { lichess: 'Lichess_Old', chesscom: 'Chess_Old' } }))
+        }
+        if (blocked) {
+          for (const method of ['getItem', 'setItem']) {
+            const native = Storage.prototype[method]
+            Storage.prototype[method] = function (name, ...args) {
+              if (name === key) throw new DOMException('Archive preference storage denied', 'SecurityError')
+              return native.call(this, name, ...args)
+            }
+          }
+        }
+        window.__archivePreferenceRequests = []
+        const previous = window.fetch
+        window.fetch = (input, init) => {
+          const url = new URL(typeof input === 'string' ? input : input.url, location.href)
+          const lichess = url.hostname === 'lichess.org' && url.pathname.startsWith('/api/games/user/')
+          if (lichess || url.hostname === 'api.chess.com') {
+            window.__archivePreferenceRequests.push(url.href)
+            if (lichess && url.pathname.endsWith('/Late_Reader')) return new Promise(resolve => {
+              // Deliberately ignore abort to exercise ownership of a late response.
+              window.__releaseArchivePreferences = () => resolve(new Response(pgn))
+            })
+            if (lichess && url.pathname.endsWith('/Network_Reader')) return Promise.reject(new TypeError('Fetch failed'))
+            if (lichess) return Promise.resolve(new Response(url.pathname.endsWith('/Missing_Reader') ? '' : pgn))
+            if (url.pathname.endsWith('/archives')) return Promise.resolve(new Response(JSON.stringify({ archives: [
+              `https://api.chess.com/pub/player/${url.pathname.split('/')[3]}/games/2026/10`,
+            ] })))
+            if (url.pathname.endsWith('/pgn')) return Promise.resolve(new Response(pgn))
+            return Promise.resolve(new Response('{}', { status: 404 }))
+          }
+          return previous(input, init)
+        }
+      }, { key, pgn, theme, seed, blocked })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const dialog = page.locator('.pgn-dialog')
+      const open = async () => { await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click(); await dialog.waitFor() }
+      const close = async () => { await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' }) }
+      const user = dialog.locator('.archive-input'), count = dialog.getByRole('spinbutton', { name: 'Games', exact: true })
+      const choose = source => dialog.locator('.archive-source-row').getByRole('button', { name: source, exact: true }).click()
+      const requests = () => page.evaluate(() => window.__archivePreferenceRequests.length)
+      const stored = () => page.evaluate(key => { try { return localStorage.getItem(key) } catch { return 'blocked' } }, key)
+      const fields = () => dialog.evaluate(el => ({ source: el.querySelector('.archive-source-btn[aria-pressed="true"]').textContent.trim(), username: el.querySelector('.archive-input').value, count: el.querySelector('.archive-count input').value }))
+      const expectFields = async (source, username, games) => assert(JSON.stringify(await fields()) === JSON.stringify({ source, username, count: String(games) }), `remembered archive fields differ: ${JSON.stringify(await fields())}`)
+      const fetchFor = async (source, username, games, normalized = username) => {
+        await choose(source); await user.fill(username); await count.fill(String(games))
+        await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+        await dialog.getByText(`Fetched 1 game for ${normalized}.`, { exact: true }).waitFor()
+      }
+      const initialStore = await stored()
+      await open()
+      await expectFields(seed === 'saved' ? 'Chess.com' : 'Lichess', seed === 'saved' ? 'Chess_Old' : '', seed === 'saved' ? 8 : 10)
+      assert(await requests() === 0 && await stored() === initialStore, 'opening restored choices fetched games or persisted untouched defaults')
+      await choose('Lichess'); await user.fill('https://lichess.org/@/Lichess_One'); await count.fill('3')
+      await choose('Chess.com')
+      assert(await user.inputValue() === (seed === 'saved' ? 'Chess_Old' : ''), 'the new provider borrowed the other provider’s username')
+      await choose('Lichess')
+      assert(await user.inputValue() === 'https://lichess.org/@/Lichess_One', 'switching providers discarded an unsubmitted username draft')
+      await fetchFor('Lichess', 'https://lichess.org/@/Lichess_One', 3, 'Lichess_One')
+      await fetchFor('Chess.com', 'Chess_Two', 7)
+      const note = dialog.locator('.archive-preferences-note')
+      assert(await note.innerText() === (blocked ? 'These choices apply while this dialog is open.' : 'Fetch choices remembered on this device.'), 'archive preference feedback promises persistence when storage is blocked')
+      await note.scrollIntoViewIfNeeded()
+      const contrast = await page.evaluate(contrastProbe, '.archive-preferences-note')
+      assert(contrast.checked === 1 && contrast.failures.length === 0 && await note.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `archive preference note is unreadable: ${JSON.stringify(contrast)}`)
+      await page.screenshot({ path: `/tmp/web-chess-archive-preferences-${browser.browserType().name()}-${width}-${scale}x-${blocked ? 'blocked' : 'saved'}.png` })
+      const remembered = await stored()
+      if (!blocked) {
+        const preferences = JSON.parse(remembered)
+        assert(preferences.source === 'chesscom' && preferences.count === 7
+          && preferences.usernames.lichess === 'Lichess_One' && preferences.usernames.chesscom === 'Chess_Two',
+        'successful fetches did not retain both canonical usernames and the effective count')
+      }
+
+      await choose('Lichess'); await user.fill('Late_Reader')
+      await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+      await page.waitForFunction(() => typeof window.__releaseArchivePreferences === 'function')
+      await dialog.getByRole('button', { name: 'Cancel fetch', exact: true }).click()
+      const text = dialog.locator('textarea')
+      await text.fill('1. d4 {Keep this draft ♞} *')
+      await page.evaluate(() => window.__releaseArchivePreferences())
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await stored() === remembered && await text.inputValue() === '1. d4 {Keep this draft ♞} *', 'a canceled late fetch changed preferences or the newer PGN draft')
+      await user.fill('Missing_Reader'); await count.fill('5')
+      await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+      await dialog.getByRole('alert').filter({ hasText: 'has no public games' }).waitFor()
+      assert(await stored() === remembered, 'an empty fetch replaced successful preferences')
+      const fetch = dialog.getByRole('button', { name: 'Fetch', exact: true })
+      const assertFetchError = async message => {
+        const alert = dialog.locator('.archive-fetch-error')
+        await alert.filter({ hasText: message }).waitFor()
+        assert(await fetch.getAttribute('aria-describedby') === await alert.getAttribute('id')
+          && await text.getAttribute('aria-invalid') !== 'true' && !await text.getAttribute('aria-describedby')
+          && await text.inputValue() === '1. d4 {Keep this draft ♞} *'
+          && await dialog.getByRole('button', { name: 'Import & Analyze', exact: true }).isEnabled(), 'a failed archive request is unassociated with Fetch or marks/changes the valid PGN draft')
+        const contrast = await page.evaluate(contrastProbe, '.archive-fetch-error')
+        assert(contrast.checked === 1 && contrast.failures.length === 0 && await alert.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `archive fetch feedback is unreadable: ${JSON.stringify(contrast)}`)
+      }
+      await assertFetchError('has no public games')
+      await user.fill('Network_Reader')
+      assert(await dialog.locator('.archive-fetch-error').count() === 0 && !await fetch.getAttribute('aria-describedby'), 'editing an archive request retained its previous result error')
+      await fetch.click(); await assertFetchError('could not be reached')
+      assert(await stored() === remembered, 'a failed request replaced successful preferences')
+      await fetchFor('Chess.com', 'Chess_Two', 7)
+      assert(await dialog.locator('.archive-fetch-error').count() === 0 && !await fetch.getAttribute('aria-describedby')
+        && await text.inputValue() === pgn, 'a successful retry kept stale fetch feedback or did not supply the requested games')
+      const beforeReopen = await requests()
+      await close(); await open()
+      await expectFields(blocked ? 'Lichess' : 'Chess.com', blocked ? '' : 'Chess_Two', blocked ? 10 : 7)
+      assert(await requests() === beforeReopen, 'reopening the dialog fetched games without a request')
+      if (!blocked) { await choose('Lichess'); assert(await user.inputValue() === 'Lichess_One', 'the other provider’s successful username was lost on reopen') }
+      await close(); await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await open()
+      await expectFields(blocked ? 'Lichess' : 'Chess.com', blocked ? '' : 'Chess_Two', blocked ? 10 : 7)
+      assert(await requests() === 0 && errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `archive preference reload fetched automatically, overflowed or raised errors: ${errors.join('; ')}`)
+      console.log(`  archive preferences (${width}px, ${scale}x, ${theme}, ${blocked ? 'blocked storage' : seed}): separate provider drafts; successful canonical handles/count; truthful storage feedback; canceled late/empty/failed fetches preserve choices and PGN; request errors belong to Fetch and clear on edit/retry; reopen/reload restore without requests`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkAnArchiveFetchBringsBackTheGames(browser) {
   const game = (event, white, black) =>
     `[Event "${event}"]\n[White "${white}"]\n[Black "${black}"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 1-0`
@@ -11226,14 +12810,19 @@ async function checkAnArchiveFetchBringsBackTheGames(browser) {
         const panel = document.querySelector('.dialog-panel')
         const text = (panel?.textContent || '').replace(/\s+/g, ' ')
         const area = [...document.querySelectorAll('.dialog-panel textarea')].map(el => el.value).find(Boolean) || ''
+        const input = panel?.querySelector('textarea.input-textarea')
+        const hint = panel?.querySelector('.pgn-database-hint')
         return {
           error: (panel?.querySelector('.dialog-error')?.textContent || '').trim(),
           offer: (panel?.querySelector('.dialog-database-offer button')?.textContent || '').replace(/\s+/g, ' ').trim(),
           events: (area.match(/\[Event "[^"]*"\]/g) || []).map(tag => tag.slice(8, -2)),
           mentionsCount: /\b\d+ games\b/.test(text),
+          invalid: input?.getAttribute('aria-invalid'),
+          databaseHint: Boolean(hint?.textContent && (input?.getAttribute('aria-describedby') || '').split(/\s+/).includes(hint.id)),
         }
       })
       assert(!state.error, `${source.label}: the fetch reported "${state.error}"`)
+      assert(state.invalid !== 'true' && state.databaseHint, `${source.label}: fetched games lack associated informational Library guidance`)
       assert(asked.length >= source.requests,
         `${source.label}: expected at least ${source.requests} request(s), saw ${asked.length}`)
       assert(asked.every(url => url.includes('archivist')),
@@ -11746,6 +13335,108 @@ async function checkReplaySpeedAfterStep(browser) {
  * back to the start, and autoplay is expected to walk to the end of the line
  * on its own and then switch itself off.
  */
+async function checkFinishedGameReplay(browser) {
+  for (const [width, height, scale, mode] of [
+    [1280, 900, 1, 'Human vs AI'], [375, 812, 1, 'Human vs Human'],
+    [320, 812, 2, 'Human vs AI'], [844, 390, 2, 'Human vs Human'],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+        workspaceMode: 'play', autoAnalyze: false, engineProfile: 'lite-single-local',
+      })))
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('button', { name: 'Start new game', exact: true }).first().click()
+      await page.locator('.mode-card', { hasText: mode }).click()
+      await page.locator('.time-control-card', { hasText: '3 + 2' }).click()
+      await page.locator('.btn-start').click()
+      await page.locator('.new-game-dialog').waitFor({ state: 'detached' })
+      if (mode === 'Human vs AI') await page.waitForFunction(() => /ready to play/.test(document.body.innerText))
+      const play = async (from, to) => {
+        await page.locator(`#chessboard-square-${from}`).click()
+        await page.locator(`#chessboard-square-${to}`).click()
+      }
+      await page.evaluate(() => { window.__previewEndingPv = 'e7e5' })
+      await play('f2', 'f3')
+      if (mode === 'Human vs Human') await play('e7', 'e5')
+      await page.locator('#chessboard-square-e5 [data-piece="bP"]').waitFor()
+      await page.evaluate(() => { window.__previewEndingPv = 'd8h4' })
+      await play('g2', 'g4')
+      if (mode === 'Human vs Human') await play('d8', 'h4')
+      await page.locator('.game-over-card h3').filter({ hasText: 'Checkmate' }).waitFor()
+      const moves = await page.locator('.mtree-chip').allTextContents()
+      const clockBefore = await page.locator('.clock-face').allTextContents()
+      assert(moves.join(' ') === 'f3 e5 g4 Qh4#' && clockBefore.length === 2, 'replay fixture did not finish its timed game')
+      await page.evaluate(async scale => {
+        document.documentElement.style.fontSize = `${scale * 100}%`
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      }, scale)
+      const replay = page.getByRole('button', { name: 'Replay game', exact: true })
+      await replay.focus()
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const replayFit = await replay.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return { height: r.height, top: r.top, bottom: r.bottom, clipped: el.scrollWidth > el.clientWidth + 1,
+          hit: [r.top + 2, r.bottom - 2].every(y => el.contains(document.elementFromPoint(r.x + r.width / 2, y))) }
+      })
+      if (!replayFit.hit) await page.screenshot({ path: `/tmp/web-chess-finished-replay-hidden-${width}.png` })
+      assert(meetsTouchTarget(replayFit.height) && !replayFit.clipped && replayFit.hit,
+        `Replay game clips its label, target or visibility: ${JSON.stringify(replayFit)}`)
+      await page.screenshot({ path: `/tmp/web-chess-finished-replay-${width}.png` })
+      // Desktop allows hiding these controls; phone layouts keep the bar open.
+      if (width > 900) {
+        await page.getByRole('button', { name: 'Collapse bottom bar', exact: true }).click()
+      }
+      await replay.focus()
+      await replay.press('Enter')
+      await waitForBoardPiece(page, 'f2', 'White pawn')
+      // These viewports have room for the whole board, including at 200% text.
+      await page.waitForFunction(() => {
+        const board = document.querySelector('.board-surface'), r = board.getBoundingClientRect()
+        const frame = document.querySelector('.main-container').getBoundingClientRect()
+        const top = Math.max(0, frame.top), bottom = Math.min(innerHeight, frame.bottom)
+        return r.height <= bottom - top + 1 && r.top >= top - 1 && r.bottom <= bottom + 1
+          && [r.left + 2, r.right - 2].every(x => [r.top + 2, r.bottom - 2]
+            .every(y => board.contains(document.elementFromPoint(x, y))))
+      }, null, { timeout: 2500 })
+      const stop = page.getByRole('button', { name: 'Stop autoplay', exact: true })
+      await stop.waitFor()
+      assert(await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'starting a replay lost board focus')
+      assert(await page.getByRole('button', { name: 'Analysis', exact: true }).first().getAttribute('aria-pressed') === 'true', 'replay did not enter Analysis')
+      assert(await page.locator('.bottom').evaluate(el => !el.classList.contains('hidden')), 'replay kept its Stop control collapsed')
+      await stop.focus()
+      await page.keyboard.down('Enter')
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await stop.count() === 0, 'held Enter restarted a stopped replay')
+      const selected = () => page.locator('.mtree-chip-active').allTextContents()
+      const stopped = await selected()
+      await page.waitForTimeout(1400)
+      assert(JSON.stringify(await selected()) === JSON.stringify(stopped), 'stopped replay continued moving')
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).focus()
+      await page.keyboard.down('Enter')
+      await stop.waitFor()
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await stop.isVisible(), 'held Enter stopped a replay just started')
+      await page.getByRole('button', { name: 'Set autoplay speed to Fast', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.mtree-chip-active')?.textContent.includes('Qh4#'))
+      await page.getByRole('button', { name: 'Autoplay the moves', exact: true }).waitFor()
+      assert(JSON.stringify(await page.locator('.mtree-chip').allTextContents()) === JSON.stringify(moves), 'replay changed the saved move tree')
+      await page.getByRole('button', { name: 'Play', exact: true }).first().click()
+      await page.locator('.game-over-card h3').filter({ hasText: 'Checkmate' }).waitFor()
+      assert(JSON.stringify(await page.locator('.clock-face').allTextContents()) === JSON.stringify(clockBefore), 'replay charged time to the completed game')
+      assert((await page.locator('[data-mode-group="game"] .gc-pill-active').innerText()).trim() === mode, 'replay changed the opponent mode')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `replay errors or horizontal overflow: ${errors.join('; ')}`)
+      console.log(`  finished replay (${width}×${height}, ${scale}x, ${mode}): starts at root with the whole board visible, board focus and visible Stop; held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkAutoplayWalksTheLine(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -11768,6 +13459,14 @@ async function checkAutoplayWalksTheLine(browser) {
     await page.keyboard.press('Home')
     await page.waitForFunction(() => /Move 1/.test(document.querySelector('.board-meta-move')?.textContent || ''), null, { timeout: 5000 })
 
+    const next = page.getByRole('button', { name: 'Go to next move', exact: true })
+    await next.focus()
+    await page.keyboard.down('Enter')
+    await page.waitForFunction(() => document.querySelector('.mtree-chip-active')?.textContent.includes('e4'))
+    await page.keyboard.down('Enter')
+    await page.keyboard.up('Enter')
+    await page.waitForFunction(() => document.querySelector('.mtree-chip-active')?.textContent.includes('e5'))
+    await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
     await page.getByRole('button', { name: 'Autoplay the moves' }).click()
     // The speed row appears once something is moving at it.
     await page.getByRole('button', { name: 'Set autoplay speed to Fast' }).click()
@@ -11776,7 +13475,7 @@ async function checkAutoplayWalksTheLine(browser) {
     await page.getByRole('button', { name: 'Autoplay the moves' }).waitFor({ timeout: 5000 })
     assert(await page.getByRole('button', { name: 'Stop autoplay' }).count() === 0,
       'autoplay stayed on after reaching the end of the line')
-    console.log('  autoplay: walked to the end of the line and stopped')
+    console.log('  autoplay: native repeated Enter advances move navigation; playback walks to the end and stops')
   } finally {
     await context.close()
   }
@@ -12716,6 +14415,181 @@ async function checkTheWinrateCardFollowsTheBoard(browser) {
   } finally { await context.close() }
 }
 
+async function checkGraphCoverage(browser) {
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      // Navigation may ask for a reading; finish those requests without data.
+      // Explicit Analyze below alone supplies the fixture's selected samples.
+      await page.addInitScript(fakeEngineScript().replace('if (window.__withholdEngineInfo) return;',
+        'if (window.__withholdEngineInfo) { this.finishTimer = setTimeout(() => this.finishSearch(), 15); return; }'))
+      await page.addInitScript(theme => {
+        window.__withholdEngineInfo = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, showWdl: true, engineProfile: 'lite-single-local', theme }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.locator('.move-entry summary').click()
+      const input = page.locator('.move-entry input')
+      for (const [move, square, piece] of [['e4', 'e4', 'wP'], ['e5', 'e5', 'bP'], ['Nf3', 'f3', 'wN'], ['Nc6', 'c6', 'bN'], ['Bb5', 'b5', 'wB'], ['a6', 'a6', 'bP'], ['Ba4', 'a4', 'wB'], ['Nf6', 'f6', 'bN']]) {
+        await input.fill(move); await input.press('Enter')
+        await page.locator(`#chessboard-square-${square} [data-piece="${piece}"]`).waitFor()
+      }
+      const goCount = () => page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+      let current = 8
+      const analyzeAt = async index => {
+        if (index !== current) {
+          if (index === 0) await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+          else await page.locator('.mtree-chip').nth(index - 1).click()
+          current = index
+        }
+        const before = await goCount()
+        await page.evaluate(() => { window.__withholdEngineInfo = false })
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
+        await page.waitForFunction(before => window.__uciCommands.filter(command => command.startsWith('go ')).length > before
+          && document.querySelector('.bottom .status')?.textContent === 'ready', before)
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await page.evaluate(() => { window.__withholdEngineInfo = true })
+      }
+      const graphs = [page.getByRole('slider', { name: 'White expected score move navigator', exact: true }), page.getByRole('slider', { name: 'WDL trend move navigator', exact: true })]
+      const coverage = page.locator('.graph-coverage')
+      const expectCoverage = async (count, gaps) => {
+        await page.waitForFunction(({ count, gaps }) => {
+          const notes = [...document.querySelectorAll('.graph-coverage')]
+          return notes.length === 2 && notes.every(el => el.textContent === `${count} of 9 positions have readings.${gaps ? ' Lines connect across gaps.' : ''}`)
+        }, { count, gaps })
+        for (const graph of graphs) {
+          assert(await graph.getAttribute('aria-valuemax') === '8', 'coverage changed the nine-position navigation range')
+          assert(await graph.evaluate(el => {
+            const note = document.getElementById(el.getAttribute('aria-describedby'))
+            return note?.classList.contains('graph-coverage') && !note.hasAttribute('aria-live') && !note.hasAttribute('role')
+              && note.scrollWidth <= note.clientWidth + 1
+          }), 'coverage is missing from the slider description, clips, or creates another live announcement')
+        }
+      }
+      await analyzeAt(0); await analyzeAt(1); await expectCoverage(2, false)
+      for (const index of [4, 5, 8]) await analyzeAt(index)
+      await expectCoverage(5, true)
+      assert(await graphs[0].locator('circle.graph-point').count() === 5, 'coverage fixture did not retain five actual samples')
+      const contrast = await page.evaluate(contrastProbe, '.graph-coverage')
+      assert(contrast.checked === 2 && contrast.failures.length === 0, `coverage contrast: ${JSON.stringify(contrast)}`)
+      await coverage.first().scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-graph-coverage-${browser.browserType().name()}-${width}-${scale}x.png` })
+      for (const graph of graphs) {
+        await page.mouse.move(0, 0)
+        await graph.focus()
+        const before = await goCount()
+        const prevented = await graph.evaluate(el => [
+          { key: 'ArrowLeft', altKey: true }, { key: 'Home', ctrlKey: true }, { key: 'End', metaKey: true },
+          { key: 'PageUp', shiftKey: true }, { key: 'ArrowLeft', isComposing: true }, { key: 'End', keyCode: 229 },
+        ].map(init => { const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true }); el.dispatchEvent(event); return event.defaultPrevented }))
+        assert(prevented.every(value => !value) && await graph.getAttribute('aria-valuenow') === '8'
+          && await goCount() === before, 'a graph captured a browser/composing chord or started another search')
+        await page.keyboard.down('ArrowLeft')
+        await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '7')
+        await page.keyboard.down('ArrowLeft'); await page.keyboard.up('ArrowLeft')
+        await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '6')
+        assert(await graph.getAttribute('aria-valuetext') === 'After 3... a6, no reading'
+          && await graph.locator('.graph-readout').textContent() === '3... a6 · no reading', 'an unscored position lacks its actual move notation or missing-data feedback')
+        await graph.press('End')
+        await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '8')
+      }
+      current = 8
+      await expectCoverage(5, true)
+      for (const index of [2, 3, 6, 7]) await analyzeAt(index)
+      await page.waitForFunction(() => !document.querySelector('.graph-coverage') && document.querySelectorAll('[aria-label="White expected score move navigator"] circle.graph-point').length === 9)
+      for (const graph of graphs) assert(!await graph.getAttribute('aria-describedby') && await graph.getAttribute('aria-valuemax') === '8', 'complete readings retained obsolete coverage or changed the range')
+      assert(await page.locator('.mtree-chip').count() === 8 && errors.length === 0, `coverage changed the line or raised errors: ${errors.join('; ')}`)
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'graph coverage overflows the viewport')
+      console.log(`  graph coverage (${width}×${height}, ${scale}x, ${theme}): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves`)
+    } finally { await context.close() }
+  }
+}
+
+/** Missing samples still belong to real moves, including imported roots and variations. */
+async function checkGraphPositionLabels(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [375, 812, 1], [320, 812, 2], [844, 390, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript().replace('if (window.__withholdEngineInfo) return;',
+        'if (window.__withholdEngineInfo) { this.finishTimer = setTimeout(() => this.finishSearch(), 15); return; }'))
+      await page.addInitScript(() => {
+        window.__withholdEngineInfo = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, showWdl: true, engineProfile: 'lite-single-local' }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.pgn-dialog textarea').first().fill('[Event "Sparse setup study"]\n[SetUp "1"]\n[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 42"]\n[TimeControl "180+2"]\n\n42... e5 {[%clk 0:02:59]} 43. e4 {[%clk 0:02:58]} Nc6 {[%clk 0:02:56]} 44. Nf3 {[%clk 0:02:54]} Nf6 {[%clk 0:02:53]} 45. Bb5 a6 {[%clk 0:02:50]} 46. Ba4 {[%clk 0:02:48]} *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.mtree-chip').nth(7).waitFor()
+      // Let the requested import sampling finish without readings before
+      // supplying three explicit samples; otherwise its queue fills the gaps.
+      await page.locator('.sample-sweep-copy').waitFor({ state: 'hidden' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      for (const index of [0, 1, 8]) {
+        if (index === 0) await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+        else await page.locator('.mtree-chip').nth(index - 1).click()
+        const before = await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+        await page.evaluate(() => { window.__withholdEngineInfo = false })
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
+        await page.waitForFunction(before => window.__uciCommands.filter(command => command.startsWith('go ')).length > before
+          && document.querySelector('.bottom .status')?.textContent === 'ready', before)
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await page.evaluate(() => { window.__withholdEngineInfo = true })
+      }
+      const names = ['White expected score move navigator', 'WDL trend move navigator', 'Move times navigator']
+      const graphs = names.map(name => page.getByRole('slider', { name, exact: true }))
+      const expectMissing = async (label, max) => {
+        for (const [index, graph] of graphs.entries()) {
+          await page.mouse.move(0, 0)
+          await graph.focus()
+          const missing = index === 2 ? 'no time reading' : 'no reading'
+          assert(await graph.getAttribute('aria-valuetext') === `After ${label}, ${missing}`
+            && await graph.locator('.graph-readout').textContent() === `${label} · ${missing}`
+            && await graph.getAttribute('aria-valuemax') === String(max), `sparse graph ${names[index]} lost the line's actual move: ${await graph.getAttribute('aria-valuetext')}`)
+        }
+      }
+      await page.locator('.mtree-chip').nth(5).click()
+      await expectMissing('45. Bb5', 8)
+      await graphs[2].scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-graph-position-labels-${browser.browserType().name()}-${width}-${scale}x.png` })
+      for (const [index, graph] of graphs.entries()) {
+        await page.mouse.move(0, 0); await graph.focus(); await graph.press('ArrowRight')
+        await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '7')
+        assert((await graph.getAttribute('aria-valuetext')).startsWith('After 45... a6, ')
+          && (await graph.locator('.graph-readout').textContent()).startsWith('45... a6 · '), 'a Black move lost its imported fullmove number')
+        if (index === 2) assert(await graph.getAttribute('aria-valuetext') === 'After 45... a6, Black spent 5.0s', 'a measured clock value changed')
+        await graph.press('ArrowLeft')
+        await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '6')
+      }
+      await graphs[2].press('End')
+      await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '8')
+      assert(await graphs[2].getAttribute('aria-valuetext') === 'After 46. Ba4, no time reading', 'a clock with no prior measurement claimed an elapsed time or missing clock')
+      await graphs[2].press('Home')
+      await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '0')
+      assert(await graphs[2].getAttribute('aria-valuetext') === 'Start position' && await graphs[2].locator('.graph-readout').textContent() === 'Start', 'the root claims to have a move time')
+
+      await page.locator('.mtree-chip').nth(4).click()
+      await page.locator('.move-entry summary').click()
+      await page.locator('.move-entry input').fill('Bc4'); await page.locator('.move-entry input').press('Enter')
+      await waitForBoardPiece(page, 'c4', 'White bishop')
+      await expectMissing('45. Bc4', 6)
+      await page.locator('.mtree-chip').filter({ hasText: /^Bb5$/ }).click()
+      await graphs[2].focus(); await graphs[2].press('End')
+      await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '8')
+      assert(await graphs[2].getAttribute('aria-valuetext') === 'After 46. Ba4, no time reading'
+        && await page.locator('.mtree-chip').count() === 9, 'returning to the original line retained a variation label or lost moves')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `graph labels raised errors or overflow: ${errors.join('; ')}`)
+      console.log(`  graph move labels (${width}×${height}, ${scale}x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges`)
+    } finally { await context.close() }
+  }
+}
+
 /** Board visuals and input stay current across engine and navigation changes. */
 async function checkBoardCanvas(browser) {
   for (const width of [1280, 375]) {
@@ -12728,18 +14602,18 @@ async function checkBoardCanvas(browser) {
         showBoardArrows: true, showTopMoveArrows: true, multiPv: 2,
       })))
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const secondArrow = page.locator('.board-surface path[marker-end*="-g1-f3"]')
       await secondArrow.waitFor()
       const firstColor = await secondArrow.getAttribute('stroke')
       await page.evaluate(() => { window.__boardArrowPhase = 1 })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(color => {
         const arrow = document.querySelector('.board-surface path[marker-end*="-g1-f3"]')
         return arrow && arrow.getAttribute('stroke') !== color
       }, firstColor)
       await page.evaluate(() => { window.__boardArrowPhase = 2 })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       // A vertical SVG path has a zero-width geometric bounding box even
       // though its stroke is visible, so wait for the painted path's presence.
       const bestArrow = page.locator('.board-surface path[marker-end*="-d2-d4"]')
@@ -12859,6 +14733,95 @@ async function checkOpeningLayout(browser) {
   }
 }
 
+async function checkOpeningIntelFocus(browser) {
+  for (const [width, height, scale] of [[1280, 812, 1], [375, 812, 1], [320, 812, 2], [844, 390, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.clock.install()
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false,
+          engineProfile: 'lite-single-local',
+        }))
+        const before = window.setTimeout
+        window.__holdOpeningRevealTimers = false
+        window.setTimeout = (callback, delay, ...args) => before(callback,
+          window.__holdOpeningRevealTimers && delay === 320 ? 30000 : delay, ...args)
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.clock.runFor(50)
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      // Settle the cloud card's own 320ms request before holding navigation retries.
+      await page.clock.runFor(1500)
+      const intel = page.getByRole('button', { name: 'Open Opening Intel', exact: true })
+      const token = page.getByLabel('Lichess API token', { exact: true })
+      const open = async () => {
+        await intel.focus()
+        await page.evaluate(() => { window.__holdOpeningRevealTimers = true })
+        await intel.press('Enter')
+        await token.waitFor()
+        // Allow the first layout correction; retain the final retry to test
+        // whether newer input and modal focus cancel it.
+        await page.clock.runFor(200)
+        const field = await token.evaluate(el => {
+          const r = el.getBoundingClientRect(), x = r.x + r.width / 2
+          return { focused: el === document.activeElement, top: r.top, bottom: r.bottom,
+            hit: [r.top + 2, r.bottom - 2].every(y => el.contains(document.elementFromPoint(x, y))) }
+        })
+        assert(field.focused && field.top >= 0 && field.bottom <= height && field.hit,
+          `Opening Intel did not focus a fully visible token field: ${JSON.stringify({ width, height, scale, field })}`)
+      }
+      const scrolls = () => page.evaluate(() => [document.querySelector('.main-container'),
+        document.querySelector('.right .panel-inner'), document.scrollingElement].map(el => el.scrollTop))
+      await open()
+      await page.clock.runFor(2500)
+      await page.evaluate(() => document.fonts.ready)
+      await token.press('Space')
+      await page.clock.runFor(100)
+      await page.evaluate(() => {
+        for (const el of [document.querySelector('.main-container'), document.querySelector('.right .panel-inner'), document.scrollingElement]) el.scrollTo({ top: el.scrollTop + 20, behavior: 'instant' })
+      })
+      await page.clock.runFor(100)
+      const reading = await scrolls()
+      await page.clock.fastForward(31000)
+      const afterTyping = await scrolls()
+      assert(afterTyping.every((value, index) => Math.abs(value - reading[index]) < 1), `an old Opening Intel retry moved the reader after new input: ${JSON.stringify({ width, height, scale, reading, afterTyping })}`)
+      assert(await token.inputValue() === ' ' && await token.evaluate(el => el === document.activeElement), 'opening navigation lost the token draft or focus')
+
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await open()
+      const pgnOpener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      await pgnOpener.click()
+      const draft = page.locator('.pgn-dialog textarea').first()
+      await draft.fill('1. d4 d5 *')
+      await page.clock.runFor(50)
+      const covered = await scrolls()
+      await page.clock.fastForward(31000)
+      assert(await draft.evaluate(el => el === document.activeElement) && await draft.inputValue() === '1. d4 d5 *', 'the old opening request stole a newer dialog draft')
+      assert((await scrolls()).every((value, index) => Math.abs(value - covered[index]) < 1), 'an Opening Intel retry scrolled behind the newer dialog')
+      await draft.press('Escape')
+      await page.clock.fastForward(31000)
+      assert(await pgnOpener.evaluate(el => el === document.activeElement), 'closing the newer dialog replayed the opening focus request')
+
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await intel.focus()
+      await page.evaluate(() => {
+        document.querySelector('.review-book-token-btn').click()
+        document.getElementById('chessboard-stage').focus()
+      })
+      await token.waitFor()
+      await page.clock.fastForward(31000)
+      assert(await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'the opening handoff overrode a newer board focus')
+      assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1, 'opening navigation changed the board')
+      console.log(`  opening focus (${width}×${height}, ${scale}x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReadingSpace(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -12962,10 +14925,18 @@ async function checkReadingSpace(browser) {
           const header = document.querySelector('.analysis-header')
           const top = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().bottom : main.top
           const heading = el.querySelector('h3').getBoundingClientRect()
+          const token = el.querySelector('.opening-token-input'), input = token.getBoundingClientRect()
           return { top: heading.top, bottom: heading.bottom, visibleTop: top, visibleBottom: main.bottom,
-            headerBottom: header.getBoundingClientRect().bottom, mainTop: main.top }
+            headerBottom: header.getBoundingClientRect().bottom, mainTop: main.top,
+            introFits: input.bottom - heading.top <= main.bottom - top + 1,
+            fieldVisible: input.top >= top - 1 && input.bottom <= main.bottom + 1
+              && [input.top + 2, input.bottom - 2].every(y => token.contains(document.elementFromPoint(input.x + input.width / 2, y))),
+            fieldFocused: document.activeElement === token }
         })
-        assert(revealed.top >= revealed.visibleTop - 1 && revealed.bottom <= revealed.visibleBottom + 1,
+        assert(revealed.fieldVisible && revealed.fieldFocused, `Opening Intel left its token field inaccessible: ${JSON.stringify(revealed)}`)
+        // Keep the heading too when the introduction and field fit together.
+        // Enlarged narrow layouts must prioritize the field the action requests.
+        assert(!revealed.introFits || (revealed.top >= revealed.visibleTop - 1 && revealed.bottom <= revealed.visibleBottom + 1),
           `Opening Intel shortcut did not reveal its heading: ${JSON.stringify(revealed)}`)
         if (width > 900 && scale === 2) assert(revealed.headerBottom <= revealed.mainTop, 'oversized header still occupies the reading viewport after scrolling')
         await page.screenshot({ path: `/tmp/web-chess-reading-space-${width}-${scale}.png` })
@@ -13162,7 +15133,7 @@ async function checkConsoleVisibility(browser) {
       await visibility('hidden')
       await waitStatus('paused')
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await waitStatus('ready')
       await visibility('visible')
       assert(await count(rawCommand) === 4, 'board analysis left a console resume pending')
@@ -13312,8 +15283,115 @@ async function checkThreadConfigurationOwnership(browser) {
     await clear.click()
     await releaseOption()
     assert(await clear.evaluate(el => el === document.activeElement), 'button option acknowledgement stranded focus')
-    console.log('  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search')
+    const clearCount = () => page.evaluate(() => window.__uciCommands.filter(text => text === 'setoption name Clear Hash').length)
+    const beforeClear = await clearCount()
+    const composingClear = await clear.evaluate(el => [{ isComposing: true }, { keyCode: 229 }].map(init => {
+      const event = new KeyboardEvent('keydown', { ...init, key: 'Enter', bubbles: true, cancelable: true })
+      el.dispatchEvent(event)
+      return event.defaultPrevented
+    }))
+    assert(composingClear.every(Boolean) && await clearCount() === beforeClear, 'composing Enter activated an engine button option')
+    await holdOption()
+    await page.keyboard.down('Enter')
+    await releaseOption()
+    await page.waitForFunction(() => document.activeElement?.textContent.trim() === 'Clear Hash' && !document.activeElement.disabled)
+    await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    assert(await clearCount() === beforeClear + 1 && await clear.isEnabled() && await clear.evaluate(el => el === document.activeElement),
+      'held Enter reactivated the button option after its acknowledgement restored focus')
+    await holdOption()
+    await clear.press('Enter')
+    await releaseOption()
+    assert(await clearCount() === beforeClear + 2, 'a fresh Enter did not activate the engine button option')
+    console.log('  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search; engine button Enter ignores held/composing events after focus restoration and accepts fresh presses')
   } finally { await context.close() }
+}
+
+async function checkEngineOptionEntry(browser) {
+  for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 1, 'light'], [320, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.addInitScript(fakeEngineScript('console-search'))
+      await page.addInitScript(theme => {
+        window.__testTextOptions = true
+        window.__testSpinOptions = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'engine-lab', autoAnalyze: false,
+          continuousAnalysis: false, engineProfile: 'lite-single-local', hashMb: 64, multiPv: 1, showWdl: false, theme,
+        }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const boardBefore = await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel)
+      const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
+      await command.fill('go depth 4')
+      const hash = page.getByRole('spinbutton', { name: 'Hash', exact: true })
+      const file = page.getByRole('textbox', { name: 'EvalFile', exact: true })
+      const count = text => page.evaluate(text => window.__uciCommands.filter(item => item === text).length, text)
+      const hold = () => page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+      const release = async () => {
+        await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+        await page.evaluate(() => window.__releaseConsoleReady())
+        await page.waitForFunction(() => !document.querySelector('input[aria-label="Hash"]').disabled)
+      }
+      const apply = async (control, value, text, shown = value) => {
+        const before = await count(text)
+        await hold()
+        await control.fill(value)
+        await control.press('Enter')
+        await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+        assert(await control.isDisabled(), 'an Enter-applied setting allowed an overlapping mutation before readiness')
+        assert(await count(text) === before + 1, `Enter did not apply exactly one ${text}: ${JSON.stringify(await page.evaluate(() => window.__uciCommands))}`)
+        await control.evaluate(el => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true })))
+        await release()
+        await page.waitForFunction(name => document.activeElement?.getAttribute('aria-label') === name, await control.getAttribute('aria-label'))
+        assert(await control.inputValue() === shown, 'Enter did not retain the applied value')
+        await control.press('Tab')
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        assert(await count(text) === before + 1, 'blur or a held Enter re-applied the accepted setting')
+      }
+      await apply(hash, '128', 'setoption name Hash value 128')
+      assert(await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:analysis-settings:v1')).hashMb) === 128,
+        'the Enter-applied Hash value did not reach the saved analysis setting')
+      await apply(hash, '999', 'setoption name Hash value 512', '512')
+      await apply(page.getByRole('spinbutton', { name: 'Move Overhead', exact: true }), '12.6', 'setoption name Move Overhead value 13', '13')
+
+      await file.fill('my network.nnue')
+      const textCommand = 'setoption name EvalFile value my network.nnue'
+      const beforeComposition = await count(textCommand)
+      for (const options of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }]) {
+        await file.evaluate((el, options) => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, ...options })), options)
+      }
+      assert(await count(textCommand) === beforeComposition && !await file.isDisabled(), 'composing or repeated Enter applied an unfinished text option')
+      await apply(file, 'my network.nnue', textCommand)
+
+      await hold()
+      await file.fill('other.nnue')
+      await file.press('Enter')
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await command.click()
+      await release()
+      assert(await command.evaluate(el => el === document.activeElement), 'option acknowledgement stole focus from the newer command draft')
+      assert(await command.inputValue() === 'go depth 4', 'applying an option erased the command draft')
+
+      const threads = page.getByRole('spinbutton', { name: 'Threads', exact: true })
+      const nextThreads = await threads.inputValue() === '2' ? '3' : '2'
+      await page.evaluate(() => { window.__holdThreadConfiguration = true; window.__ackThreadConfiguration = null })
+      await threads.fill(nextThreads)
+      await threads.press('Enter')
+      await page.waitForFunction(() => typeof window.__ackThreadConfiguration === 'function')
+      assert(await threads.isDisabled(), 'Enter skipped thread-configuration acknowledgement')
+      await page.evaluate(() => window.__ackThreadConfiguration())
+      await page.waitForFunction(() => !document.querySelector('input[aria-label="Threads"]').disabled
+        && document.activeElement === document.querySelector('input[aria-label="Threads"]'))
+      assert(await count(`setoption name Threads value ${nextThreads}`) === 1, 'Enter resized threads more than once')
+      assert(await page.locator('#chessboard-square-e2').evaluate(readBoardSquareLabel) === boardBefore, 'option entry changed the board')
+      assert(await page.evaluate(() => !window.__uciCommands.some(text => /^go\b/.test(text))), 'applying options unexpectedly started a search')
+      console.log(`  option entry (${width}px, ${scale}x, ${theme}): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained`)
+    } finally { await context.close() }
+  }
 }
 
 async function checkRawSpinOptionValues(browser) {
@@ -14327,6 +16405,29 @@ async function checkConsoleDraftOwnership(browser) {
       const command = page.getByRole('textbox', { name: 'UCI command', exact: true })
       const output = page.getByLabel('UCI console output', { exact: true })
       const submit = async text => { await command.fill(text); await command.press('Enter') }
+      await command.fill('isready')
+      const readyCount = () => page.evaluate(() => window.__uciCommands.filter(text => text === 'isready').length)
+      const beforeReady = await readyCount()
+      const composing = await command.evaluate(el => [{ isComposing: true }, { keyCode: 229 }].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, key: 'Enter', bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(composing.every(Boolean) && await command.inputValue() === 'isready' && await readyCount() === beforeReady,
+        'composing Enter submitted or changed the console draft')
+      await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
+      await page.keyboard.down('Enter')
+      await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
+      await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+      assert(await command.inputValue() === 'isready' && await page.locator('.engine-lab-card .error-copy').count() === 0,
+        'held Enter resubmitted a pending console command or raised an unrelated busy error')
+      await page.evaluate(() => window.__releaseConsoleReady())
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await readyCount() === beforeReady + 1 && await page.locator('.engine-lab-card .error-copy').count() === 0
+        && await command.evaluate(el => el === document.activeElement), 'one console press did not finish cleanly with its input focused')
+      await submit('isready')
+      await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
+      assert(await readyCount() === beforeReady + 2, 'a fresh console Enter was ignored')
       await submit('position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
       await page.waitForFunction(() => document.querySelector('[aria-label="UCI command"]')?.value === '')
       const search = 'go depth 12'
@@ -14389,7 +16490,7 @@ async function checkConsoleDraftOwnership(browser) {
       assert(await output.textContent() === 'No command output yet.', 'old output returned after Reset saved workspace')
       assert(await command.inputValue() === '' && await page.locator('.lab-history-list button').count() === 0, 'reset restored an old command draft/history')
       assert(await page.locator('.command-summary').filter({ hasText: 'Last run:' }).count() === 0, 'old completion restored the reset run summary')
-      console.log(`  console drafts (${width}px, ${scale}x): new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output`)
+      console.log(`  console drafts (${width}px, ${scale}x): held/composing Enter preserves pending commands without busy errors and fresh presses work; new drafts survive completion and Stop, typed Stop retains terminal output/history, unchanged submissions clear, and reset discards late output`)
     } catch (error) {
       const state = await page.evaluate(() => ({ status: document.querySelector('.bottom .status')?.textContent,
         input: document.querySelector('[aria-label="UCI command"]')?.value,
@@ -14666,7 +16767,7 @@ async function checkThreatEngineWake(browser) {
       const beforeBoard = await board()
       const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
       const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
-      const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+      const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/, exact: true })
       for (const trigger of ['button', 'keyboard']) {
         await lab.click()
         await page.getByRole('button', { name: 'Release engine', exact: true }).click()
@@ -14720,7 +16821,7 @@ async function checkThreatShortcutDoesNotRestart(browser) {
       await page.keyboard.down('t')
       await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'analyzing')
       const sent = await page.evaluate(() => window.__uciCommands.length)
-      const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+      const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/, exact: true })
       assert(await ask.isDisabled(), 'the first keyboard threat did not hold its action')
       for (let repeat = 0; repeat < 2; repeat++) await page.keyboard.down('t')
       await settle()
@@ -14771,7 +16872,7 @@ async function checkThreatInterruptionRecovery(browser) {
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
         if (height < 320 * scale) await page.waitForFunction(() => document.querySelector('.app-shell')?.getAttribute('data-scroll-chrome') === 'true'
           && Math.abs(document.querySelector('.main-container').getBoundingClientRect().height - innerHeight) < 1)
-        const ask = page.getByRole('button', { name: 'Show what the opponent is threatening', exact: true })
+        const ask = page.getByRole('button', { name: /^(What is threatened\?|Reading the threat…)$/, exact: true })
         await page.evaluate(() => { window.__withholdEngineInfo = true })
         await ask.click()
         await waitStatus('analyzing')
@@ -14841,7 +16942,7 @@ async function checkEngineRelease(browser) {
       const load = page.getByRole('button', { name: 'Load engine', exact: true })
       const lab = page.getByRole('button', { name: 'Engine Lab', exact: true })
       const analyzeTab = page.getByRole('button', { name: 'Analyze', exact: true })
-      const run = page.getByRole('button', { name: 'Run analysis', exact: true })
+      const run = page.getByRole('button', { name: 'Analyze position', exact: true })
       await waitStatus('ready')
       await openSettings(page)
       await chooseTheme(page, scale === 2 ? 'Light' : 'Dark')
@@ -14908,13 +17009,13 @@ async function checkEngineRelease(browser) {
       await page.evaluate(() => { window.__withholdEngineInfo = true })
       await page.getByRole('button', { name: 'Review', exact: true }).click()
       await page.getByRole('button', { name: 'Review Game', exact: true }).click()
-      await page.getByRole('button', { name: /Stop game review/ }).waitFor()
+      await page.getByRole('button', { name: /^Stop review/ }).waitFor()
       await lab.click()
       assert(await release.isDisabled(), 'Release remained available during game review')
       assert(/review|import/.test(await release.getAttribute('title')), 'busy release control did not explain the review')
       await page.getByRole('button', { name: 'Review', exact: true }).click()
       await page.evaluate(() => { window.__withholdEngineInfo = false })
-      await page.getByRole('button', { name: /Stop game review/ }).click()
+      await page.getByRole('button', { name: /^Stop review/ }).click()
       await waitStatus('ready')
       await lab.click()
       await release.click()
@@ -14960,7 +17061,7 @@ async function checkEngineRelease(browser) {
     assert(await page.evaluate(() => window.__terminatedEngines === 1), 'requesting review lost a pool worker')
     await page.getByRole('button', { name: 'Review', exact: true }).click()
     await page.evaluate(() => { window.__withholdEngineInfo = false })
-    await page.getByRole('button', { name: /Stop game review/ }).click()
+    await page.getByRole('button', { name: /^Stop review/ }).click()
     await page.waitForFunction(() => window.__terminatedEngines === 3)
     await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
     await page.getByRole('button', { name: 'Release engine', exact: true }).click()
@@ -14994,7 +17095,7 @@ async function checkEngineRelease(browser) {
       let retained
       if (scenario === 'fallback-load') {
         await page.getByRole('button', { name: 'Analyze', exact: true }).click()
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => document.querySelector('.pv-list')?.textContent.includes('+0.35')
           && document.querySelector('.bottom .status')?.textContent === 'ready')
         retained = await page.locator('.pv-list').textContent()
@@ -15005,7 +17106,7 @@ async function checkEngineRelease(browser) {
       await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       if (scenario === 'fallback') {
         await page.evaluate(() => { window.__failConsoleBoot = true })
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => window.__engineCount === 3 && document.querySelector('.bottom .status')?.textContent === 'ready'
           && document.querySelector('.pv-list')?.textContent.includes('+0.35'))
         assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'fallback lost or duplicated the explicit Analyze request')
@@ -15022,7 +17123,7 @@ async function checkEngineRelease(browser) {
         assert(await page.evaluate(() => window.__uciCommands.filter(c => c === 'go depth 12').length === 1), 'Load started an unsolicited fallback search')
       } else {
         await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null; window.__withholdEngineInfo = true; window.__setReleaseVisibility('hidden') })
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
         await page.evaluate(() => window.__releaseConsoleReady())
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
@@ -15036,7 +17137,7 @@ async function checkEngineRelease(browser) {
         await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'unloaded')
         await page.getByRole('button', { name: 'Analyze', exact: true }).click()
         await page.evaluate(() => { window.__holdConsoleReady = true; window.__releaseConsoleReady = null })
-        await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
         await page.waitForFunction(() => typeof window.__releaseConsoleReady === 'function')
         await page.getByRole('button', { name: 'Stop analysis', exact: true }).click()
         await page.evaluate(() => window.__releaseConsoleReady())
@@ -15177,7 +17278,7 @@ async function checkConsoleSearchOwnership(browser) {
           if (document.querySelector('.pv-list')?.textContent.includes('+9.00')) window.__consoleScoreLeaked = true
         }).observe(document.querySelector('.pv-list'), { childList: true, subtree: true, characterData: true })
       })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.pv-list article')?.textContent.includes('+0.35')
         && document.querySelector('.bottom .status')?.textContent === 'ready')
       const handoff = await page.evaluate(() => {
@@ -15520,7 +17621,7 @@ async function checkShortDesktopDialogs(browser) {
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.locator('#chessboard-square-e2').click()
       await page.locator('#chessboard-square-e4').click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
       await page.setViewportSize({ width: 901, height })
       await page.evaluate(rem => { document.documentElement.style.fontSize = `${rem}px` }, rem)
@@ -15602,7 +17703,7 @@ async function checkCompactToolbar(browser) {
         workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, theme: width === 901 ? 'light' : 'dark',
       })), width)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom')?.textContent.includes('nps'))
       for (const scale of [1, 2, 1]) {
         await page.evaluate(scale => { document.documentElement.style.fontSize = `${16 * scale}px` }, scale)
@@ -15670,7 +17771,7 @@ async function checkCompactFooter(browser) {
         theme: experience === 'pro' ? 'dark' : 'light',
       })), experience)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.bottom-status-row .status')?.textContent === 'analyzing')
       if (experience === 'pro') await page.waitForFunction(() => document.querySelector('.bottom-status-row')?.textContent.includes('nps'))
       const readings = await page.locator('.bottom-status-row').innerText()
@@ -15780,7 +17881,7 @@ async function checkCompactFooter(browser) {
       localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false }))
     })
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.waitForFunction(() => document.querySelector('.bottom .engine-telemetry-inline')?.textContent.includes('nps'))
     await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
     await page.waitForTimeout(350)
@@ -15806,11 +17907,11 @@ async function checkNarrowDesktopLayout(browser) {
       })), experience)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       // One reading is a summary, not a plot; the graph needs a second position.
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.locator('.analytics-card .graph-summary strong').first().waitFor()
       await page.locator('#chessboard-square-d2').click()
       await page.locator('#chessboard-square-d4').click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       await page.locator('.winrate-graph').first().waitFor()
       // Back to the start, so the e2-e4 this check ends on is White's move.
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
@@ -15938,19 +18039,64 @@ async function checkObservedLayout(browser) {
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     assert(await page.locator('.winrate-graph').count() === 0, 'layout check requires an initially empty graph')
     // One reading is a summary, not a plot; the graph needs a second position.
-    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.locator('.analytics-card .graph-summary strong').first().waitFor()
     await page.locator('#chessboard-square-e2').click()
     await page.locator('#chessboard-square-e4').click()
-    await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+    await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.locator('.winrate-graph').first().waitFor()
     const graphFits = async () => {
-      await page.waitForFunction(() => [...document.querySelectorAll('.graph-scroll')].every(el => {
-        const svg = el.querySelector('svg')
-        return !svg || Math.abs(Number(svg.getAttribute('width')) - el.clientWidth) <= 1
-      }))
+      await page.waitForFunction(() => {
+        // Matching a transient graph/container width during the 220ms panel
+        // animation is insufficient for comparing its restored final width.
+        const panels = [...document.querySelectorAll('.panel.left, .panel.right')]
+        return panels.length === 2 && panels.every(panel => Math.abs(panel.getBoundingClientRect().width
+          - Number(panel.querySelector('[role="separator"]')?.getAttribute('aria-valuenow'))) <= 0.5)
+          && [...document.querySelectorAll('.graph-scroll')].every(el => {
+            const svg = el.querySelector('svg')
+            return !svg || Math.abs(Number(svg.getAttribute('width')) - el.clientWidth) <= 1
+          })
+      })
       return page.locator('.winrate-graph').first().evaluate(el => Number(el.getAttribute('width')))
     }
+    for (const [selector, attribute] of [
+      ['.panel.top > .resize-handle', 'aria-expanded'], ['.panel.bottom > .resize-handle', 'aria-expanded'],
+      ['[aria-label="Resize left panel"]', 'aria-valuenow'], ['[aria-label="Resize right panel"]', 'aria-valuenow'],
+    ]) {
+      const handle = page.locator(selector)
+      const initial = await handle.getAttribute(attribute)
+      await handle.focus()
+      const ignored = await handle.evaluate(el => [
+        { key: 'ArrowLeft', altKey: true }, { key: 'ArrowRight', metaKey: true }, { key: 'Home', ctrlKey: true },
+        { key: 'End', shiftKey: true }, { key: 'Enter', ctrlKey: true }, { key: ' ', metaKey: true },
+        { key: 'Enter', isComposing: true }, { key: 'End', keyCode: 229 },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(ignored.every(value => !value) && await handle.getAttribute(attribute) === initial, `${selector} captured a browser/composition chord or changed a panel`)
+      for (const key of ['Enter', 'Space']) {
+        await page.keyboard.down(key)
+        const first = await handle.getAttribute(attribute)
+        assert(first !== initial, `${selector} did not toggle on a fresh ${key}`)
+        await page.keyboard.down(key); await page.keyboard.up(key)
+        assert(await handle.getAttribute(attribute) === first && await handle.evaluate(el => el === document.activeElement), `${selector} toggled again or lost focus on held ${key}`)
+        await handle.press(key)
+        assert(await handle.getAttribute(attribute) === initial, `${selector} did not restore on a fresh ${key}`)
+      }
+    }
+    for (const [name, key] of [['Resize left panel', 'ArrowRight'], ['Resize right panel', 'ArrowLeft']]) {
+      const handle = page.getByRole('separator', { name, exact: true })
+      await handle.focus()
+      const before = Number(await handle.getAttribute('aria-valuenow'))
+      await page.keyboard.down(key); await page.keyboard.down(key); await page.keyboard.up(key)
+      assert(Number(await handle.getAttribute('aria-valuenow')) === before + 80, `${name} stopped repeating its 40px keyboard resize step`)
+      await handle.press('End')
+    }
+    assert(await page.locator('.mtree-chip').count() === 1 && await page.getByRole('button', { name: 'Stop autoplay', exact: true }).count() === 0,
+      'panel keyboard controls moved the game or started autoplay')
+    console.log('  panel keyboard: all four handles toggle once for held Enter/Space and again on fresh presses; browser/composition chords pass through; held side arrows still resize twice, with no game/autoplay change')
     const initialWidth = await graphFits()
     const resize = page.getByRole('separator', { name: 'Resize left panel' })
     await resize.focus()
@@ -15980,10 +18126,10 @@ async function checkObservedLayout(browser) {
         `board exceeded the resized viewport: ${JSON.stringify(geometry)}`)
     }
     await graphFits()
-    await page.locator('#chessboard-square-e2').click()
-    await page.locator('#chessboard-square-e4').click()
-    await waitForBoardPiece(page, 'e4', 'White pawn')
-    console.log('  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and e2-e4 remain correct')
+    await page.locator('#chessboard-square-e7').click()
+    await page.locator('#chessboard-square-e5').click()
+    await waitForBoardPiece(page, 'e5', 'Black pawn')
+    console.log('  observed layout: late graphs, keyboard panel resize, collapse/reopen, phone rotation and a new e7-e5 remain correct')
   } finally { await context.close() }
 }
 
@@ -17164,6 +19310,10 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
   const page = await context.newPage()
   try {
     await page.addInitScript(fakeEngineScript())
+    await page.addInitScript(() => {
+      localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ autoAnalyze: false }))
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.resolve() } })
+    })
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const startFresh = page.getByRole('button', { name: /start fresh/i })
     if (await startFresh.count()) await startFresh.first().click()
@@ -17222,6 +19372,27 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
       await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).click()
       counted += await surface(`the PGN dialog, ${tab}`)
     }
+    // The empty board only exercises the unavailable share button. A valid
+    // game and its copied state must retain their printed label too.
+    await page.getByRole('button', { name: 'Import', exact: true }).click()
+    await page.locator('.pgn-dialog textarea').fill('1. e4 e5 2. Nf3 Nc6 *')
+    await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+    await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+    const openExport = async () => {
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.getByRole('button', { name: 'Export', exact: true }).click()
+    }
+    await openExport()
+    counted += await surface('the PGN dialog, a valid midgame link')
+    await page.getByRole('button', { name: /^Copy Game Link/ }).click()
+    await page.getByRole('button', { name: 'Copied Link', exact: true }).waitFor()
+    counted += await surface('the PGN dialog, a copied game link')
+    await page.keyboard.press('Escape')
+    await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Go to last position', exact: true }).click()
+    await openExport()
+    counted += await surface('the PGN dialog, a valid end-of-game link')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(300)
 
@@ -17248,7 +19419,7 @@ async function checkEveryControlAnswersToWhatItSays(browser) {
     await page.evaluate(() => document.querySelectorAll('details:not(.settings-menu)').forEach(d => { d.open = true }))
     counted += await surface('the board with every section open')
 
-    console.log(`  names: ${counted} controls over nine surfaces, every one named and every name keeping its own printed word`)
+    console.log(`  names: ${counted} controls over twelve surfaces, every one named and every name keeping its own printed word`)
   } finally { await context.close() }
 }
 
@@ -17801,6 +19972,7 @@ async function checkAnInterruptedGameComesBack(browser) {
     // Closing a normal dialog is harmless. Here it deletes the only saved
     // game, so accidental Escape/backdrop gestures need to leave the choice
     // and the snapshot intact until Restore or Start fresh is pressed.
+    await assertDialogBrowserChords(page, '.auto-save-recovery')
     await page.keyboard.press('Escape')
     assert(await restore.isVisible(), 'Escape dismissed the recovery choice')
     assert(await savedMoves() === 3, 'Escape deleted the recoverable game')
@@ -17933,11 +20105,15 @@ async function checkASavedGameComesBack(browser) {
     const other = await exportPgn()
     assert(other !== saved, 'the board did not change, so loading proves nothing')
 
+    const handle = page.getByRole('separator', { name: 'Resize right panel', exact: true })
+    await handle.focus(); await handle.press('Home')
+    await page.waitForFunction(() => document.querySelector('.right .panel-inner')?.inert)
     await openLibrary()
     const load = page.locator('li.library-row button[aria-label^="Load "]').first()
     await load.waitFor({ timeout: 10000 })
     await load.click()
     await page.waitForTimeout(1800)
+    assert(await page.locator('.right .panel-inner').evaluate(el => !el.inert), 'loading a saved game kept its analysis panel collapsed')
     const back = await exportPgn()
     assert(back === saved,
       'the saved game came back changed:\n' +
@@ -18785,11 +20961,13 @@ async function checkCounterRawFeedback(browser) {
       const half = dialog.getByRole('spinbutton', { name: 'Halfmove', exact: true })
       const full = dialog.getByRole('spinbutton', { name: 'Fullmove', exact: true })
       const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      const errorDescriptionId = field => field.evaluate(el => (el.getAttribute('aria-describedby') || '').split(/\s+/)
+        .find(id => document.getElementById(id)?.classList.contains('fen-counter-error')))
       for (const [rawHalf, rawFull] of [['17junk', '23junk'], ['9007199254740993', '0']]) {
         const original = `${root} ${rawHalf} ${rawFull}`
         await input.fill(original)
         const invalid = await half.getAttribute('aria-invalid')
-        const description = await half.getAttribute('aria-describedby')
+        const description = await errorDescriptionId(half)
         const help = description ? await dialog.locator(`[id="${description}"]`).textContent() : null
         await half.focus()
         await page.keyboard.press('Tab')
@@ -18801,7 +20979,7 @@ async function checkCounterRawFeedback(browser) {
         assert(await half.inputValue() === '0' && await half.getAttribute('aria-invalid') !== 'true'
           && await half.evaluate(element => element === document.activeElement), 'counter repair lost its value, error state or focus')
         assert(await full.getAttribute('aria-invalid') === 'true' && await load.isDisabled(), 'repairing one counter hid the other error')
-        const fullDescription = await full.getAttribute('aria-describedby')
+        const fullDescription = await errorDescriptionId(full)
         assert(fullDescription && (await dialog.locator(`[id="${fullDescription}"]`).textContent()).includes(rawFull), 'Fullmove does not expose its invalid raw token')
         await full.focus()
         await page.keyboard.press('Enter')
@@ -18817,14 +20995,35 @@ async function checkCounterRawFeedback(browser) {
       await half.focus(); await page.keyboard.press('Tab')
       assert(await input.inputValue() === `${root} 000 001` && await half.getAttribute('aria-invalid') !== 'true'
         && await full.getAttribute('aria-invalid') !== 'true' && await load.isEnabled(), 'valid leading-zero counters are being treated as invalid or rewritten on read')
+      for (const [field, previous] of [[half, '17'], [full, '23']]) {
+        for (const raw of ['9007199254740993', '1e30']) {
+          for (const key of ['Enter', 'Tab']) {
+            const original = `${root} 17 23`
+            await input.fill(original)
+            await field.fill(raw)
+            const rangeDescription = await field.evaluate(el => (el.getAttribute('aria-describedby') || '').split(/\s+/)
+              .map(id => document.getElementById(id)?.textContent || '').find(text => text.includes('Too large')))
+            assert(await input.inputValue() === original && await field.inputValue() === raw
+              && await field.getAttribute('aria-invalid') === 'true' && rangeDescription?.includes(`keep ${previous}`), 'an unsafe counter edit rounded or replaced the FEN instead of explaining how to keep the previous value')
+            await page.keyboard.press(key)
+            assert(await input.inputValue() === original && await field.inputValue() === previous
+              && await field.getAttribute('aria-invalid') !== 'true' && await load.isEnabled(), `${key} did not restore the previous safe counter`)
+            if (key === 'Enter') assert(await field.evaluate(el => el === document.activeElement), 'rejecting an unsafe counter lost input focus')
+          }
+        }
+      }
+      await half.fill('9007199254740993')
+      await half.fill('42')
+      assert(await input.inputValue() === `${root} 42 23` && await half.getAttribute('aria-invalid') !== 'true'
+        && !await half.evaluate(el => el.getAttribute('aria-describedby')?.includes('range-error')), 'correcting an unsafe counter did not update the FEN and remove range feedback')
       await input.fill(root)
-      const missing = await half.getAttribute('aria-describedby')
+      const missing = await errorDescriptionId(half)
       assert(await half.getAttribute('aria-invalid') === 'true' && missing
         && (await dialog.locator(`[id="${missing}"]`).textContent()).includes('Missing'), 'missing counters have no explicit field guidance')
       await half.focus(); await page.keyboard.press('Enter')
       assert(await input.inputValue() === `${root} 0 1` && await load.isEnabled(), 'Enter cannot accept the shown defaults for missing counters')
       await input.fill(`${root} ${'9'.repeat(100)} 1`)
-      const bounded = await half.getAttribute('aria-describedby')
+      const bounded = await errorDescriptionId(half)
       const guidance = bounded && dialog.locator(`[id="${bounded}"]`)
       assert(guidance && (await guidance.textContent()).length < 120 && (await guidance.textContent()).includes('…'), 'a long invalid counter creates unbounded field feedback')
       await guidance.scrollIntoViewIfNeeded()
@@ -18835,7 +21034,7 @@ async function checkCounterRawFeedback(browser) {
       assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1 && await page.locator('.mtree-chip').count() === 0, 'counter correction loaded the draft without being asked')
       assert(await page.locator('.app-error-shell').count() === 0 && errors.length === 0, `counter feedback errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'counter feedback overflows')
-      console.log(`  raw counter feedback (${width}px, ${scale}x, ${theme}): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive`)
+      console.log(`  raw counter feedback (${width}px, ${scale}x, ${theme}): exact bad/missing/unsafe FEN values have associated bounded guidance; unsafe field edits preserve the last valid FEN and restore its counters on Enter/blur; correction clears range feedback; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive`)
     } finally { await context.close() }
   }
 }
@@ -19347,14 +21546,14 @@ async function checkASharedLinkCarriesTheGame(browser) {
       await page.waitForTimeout(300)
       return fen
     }
-    // By visible text: these buttons' accessible names are their aria-labels
-    // ("Copy a link to this whole game"), so a role query on the text misses.
+    // Link buttons can be reached by their printed names, including after
+    // switching between whole-game and position sharing.
     const copyFrom = async (tab, text) => {
       await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
       await page.locator('.dialog-panel').waitFor({ timeout: 15000 })
       await page.getByRole('button', { name: tab }).click()
       await page.waitForTimeout(400)
-      const button = page.locator('.dialog-panel button', { hasText: text }).first()
+      const button = page.locator('.dialog-panel').getByRole('button', { name: text }).first()
       await button.waitFor({ timeout: 10000 })
       await button.click()
       await page.waitForTimeout(600)
@@ -20037,6 +22236,12 @@ async function checkDrillHiddenHints(browser) {
     page.on('pageerror', error => errors.push(error.message))
     try {
       await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(lichessServiceScript({
+        host: 'explorer.lichess.org',
+        body: JSON.stringify({ white: 100, draws: 20, black: 30, moves: [
+          { uci: 'e2e4', san: 'e4', white: 100, draws: 20, black: 30 },
+        ] }),
+      }))
       await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, engineProfile: 'lite-single-local', theme })), theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
       await page.evaluate(async scale => {
@@ -20048,7 +22253,7 @@ async function checkDrillHiddenHints(browser) {
       await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
       await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
       await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
-      await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
+      await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
       const values = page.locator('.coach-grid > div strong')
       const best = values.nth(1), reply = values.nth(2)
       await page.waitForFunction(() => {
@@ -20092,13 +22297,43 @@ async function checkDrillHiddenHints(browser) {
       assert(squareLabels.every(square => !/e2e4|e7e5/.test([square.label, ...square.titles].join(' '))), 'a square label or hover title exposes an engine answer')
       await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Pro', exact: true }).click()
       await hidden()
+      await page.getByLabel('Lichess API token', { exact: true }).fill('drill-book-fixture')
+      await page.waitForFunction(() => document.querySelector('.opening-intel-card')?.textContent.includes('Games 150'))
+      assert(await page.locator('.opening-move-row').count() === 0 && await page.getByRole('button', { name: 'Analyze top book moves', exact: true }).count() === 0,
+        'opening controls can reveal a hidden drill answer')
+      assert(!(await page.locator('.opening-intel-card').innerText()).includes('Engine/book agreement'), 'opening agreement exposes the hidden best move')
+      await page.getByRole('button', { name: 'Engine Lab', exact: true }).click()
+      assert(await page.getByRole('button', { name: 'Analyze top book moves', exact: true }).count() === 0, 'Engine Lab can analyze hidden drill answers')
+      await page.getByRole('button', { name: 'Analyze', exact: true }).click()
       await page.locator('.analysis-experience-toggle').getByRole('button', { name: 'Coach', exact: true }).click()
-      await play('d2', 'd4')
+      await page.locator('.move-entry > summary').click()
+      const entry = page.locator('.move-entry input')
+      await entry.fill('d4')
+      const beforeComposition = await announcement()
+      const composition = await entry.evaluate(el => [
+        { key: 'Enter', isComposing: true }, { key: 'Enter', keyCode: 229 },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(composition.every(Boolean) && await announcement() === beforeComposition, 'composing Enter can submit a drill attempt')
+      const submitFrom = width === 1280 ? entry : page.getByRole('button', { name: 'Play move', exact: true })
+      await submitFrom.focus()
+      await page.keyboard.down('Enter')
+      await hidden()
+      const firstAttempt = await announcement()
+      await page.keyboard.down('Enter')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await announcement() === firstAttempt && firstAttempt.includes('Attempt 1.'), 'held Enter counted extra drill attempts or revealed the answer')
+      assert(await entry.inputValue() === 'd4' && await entry.evaluate(el => el === document.activeElement), 'a refused typed move lost its focused correction draft')
+      console.log(`  typed drill entry (${width}×${height}, ${scale}x): ${width === 1280 ? 'input' : 'Play move'} Enter counts once while held; composing/229 Enter stays with text input; rejected draft and focus remain`)
       await hidden()
       assert((await announcement()).includes('Not the line. Try again.'), 'wrong-answer feedback is outside the live drill status')
       assert(await feedback.evaluate(el => el === window.__drillFeedbackNode && el.getAttribute('aria-live') === 'polite' && el.getAttribute('aria-atomic') === 'true'), 'feedback replaced its live region or lost polite atomic semantics')
       assert((await feedback.ariaSnapshot()).includes('Not the line. Try again.') && await cardFeedback.locator('button').count() === 0, 'accessible drill feedback omits the result or repeats action controls')
-      await play('b1', 'c3')
+      await entry.press('Enter')
       await card.getByText('Not the line. It plays e4.', { exact: true }).waitFor()
       assert((await announcement()).includes('Not the line. It plays e4.') && (await feedback.innerText()).includes('Answer e4'), 'revealed answer is absent from the board verdict or live drill status')
       const revealed = await announcement()
@@ -21162,7 +23397,15 @@ async function checkCommandPaletteKeyboard(browser) {
       await page.locator('#chessboard-square-e4').click()
       await page.waitForFunction(() => document.querySelector('#chessboard-square-e4 [data-piece="wP"]'))
       const opener = page.getByTestId('command-palette-btn')
-      await opener.click()
+      await page.mouse.move(0, 0)
+      await opener.focus()
+      await page.keyboard.down('Enter')
+      await page.waitForFunction(() => document.activeElement?.matches('[data-command-input]'))
+      await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+      assert(await page.locator('.command-palette').isVisible()
+        && await page.locator('[data-command-input]').inputValue() === ''
+        && await page.evaluate(() => JSON.parse(localStorage.getItem('webchess:recent-commands:v1') || '[]').length === 0),
+      'holding Enter to open Commands ran its highlighted command')
       const square = page.locator('#chessboard-square-a1')
       const before = await square.boundingBox()
       /*
@@ -21241,8 +23484,40 @@ async function checkCommandPaletteKeyboard(browser) {
       assert(await input.getAttribute('aria-activedescendant') !== initial, 'ArrowDown did not select another command')
       await input.press('ArrowUp')
       assert(await input.getAttribute('aria-activedescendant') === initial, 'ArrowUp did not restore the selection')
+      await page.keyboard.down('ArrowDown')
+      const firstDown = await input.getAttribute('aria-activedescendant')
+      await page.keyboard.down('ArrowDown'); await page.keyboard.up('ArrowDown')
+      assert(await input.getAttribute('aria-activedescendant') !== firstDown, 'held Down did not continue selecting commands')
+      await input.press('ArrowUp'); await input.press('ArrowUp')
+      assert(await input.getAttribute('aria-activedescendant') === initial, 'held-arrow navigation did not return to its original selection')
       await input.fill('board')
       const selected = await input.getAttribute('aria-activedescendant')
+      await input.evaluate(el => {
+        el.setSelectionRange(1, 1)
+        window.__paletteShiftDownPrevented = null
+        const record = event => {
+          if (event.key !== 'ArrowDown') return
+          window.__paletteShiftDownPrevented = event.defaultPrevented
+          window.removeEventListener('keydown', record)
+        }
+        window.addEventListener('keydown', record)
+      })
+      await input.press('Shift+ArrowDown')
+      assert(await page.evaluate(() => window.__paletteShiftDownPrevented === false)
+        && await input.getAttribute('aria-activedescendant') === selected
+        && await input.inputValue() === 'board' && await input.evaluate(el => el === document.activeElement),
+      'Shift+Down in the search was captured or selected a command instead of editing text')
+      const prevented = await input.evaluate(el => [
+        { key: 'ArrowUp', ctrlKey: true }, { key: 'ArrowDown', metaKey: true }, { key: 'ArrowUp', altKey: true },
+        { key: 'Enter', shiftKey: true }, { key: 'Enter', ctrlKey: true }, { key: 'Enter', metaKey: true },
+        { key: 'Enter', altKey: true }, { key: 'Enter', keyCode: 229 },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(prevented.every(value => !value) && await input.isVisible()
+        && await input.getAttribute('aria-activedescendant') === selected, 'a browser/editing/composing chord moved or ran a palette command')
       /*
        * Home and End are the board's "first position" and "last position",
        * and `isTypingTarget` is what keeps the global handler out of a text
@@ -21265,6 +23540,9 @@ async function checkCommandPaletteKeyboard(browser) {
       await input.fill('flip')
       await input.dispatchEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })
       assert(await input.isVisible(), 'confirming IME composition ran a command')
+      await input.press('Control+Enter')
+      assert(await input.isVisible() && Math.abs((await square.boundingBox()).x - after.x) < 1,
+        'Control+Enter in the search ran Flip board')
       await input.press('Enter')
       await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
       const restored = await square.boundingBox()
@@ -21286,7 +23564,7 @@ async function checkCommandPaletteKeyboard(browser) {
         await page.keyboard.press('Escape')
       }
       console.log(`  command reopen (${width}px): query and selection reset before the first key, across three reopen cycles`)
-      console.log(`  command keyboard (${width}px): Tab activates the focused button; search editing and Enter work`)
+      console.log(`  command keyboard (${width}px): held Enter opens Commands without running a command; held arrows navigate, fresh Enter and Tab activation work; native Shift+Down and modified/composing keys preserve search editing and command selection`)
     } finally { await context.close() }
   }
 }
@@ -21463,6 +23741,7 @@ async function main() {
       'console-whitespace': checkConsoleWhitespace,
       'perft-stop': checkPerftStopReleasesWorker,
       'spin-options': checkRawSpinOptionValues,
+      'option-entry': checkEngineOptionEntry,
       'thread-configuration': checkThreadConfigurationOwnership,
       'console-drafts': checkConsoleDraftOwnership,
       'console-history': checkConsoleHistoryAndErrors,
@@ -21481,19 +23760,23 @@ async function main() {
       'command-copy': checkCommandCopyFailures,
       'palette-layout': checkCommandPaletteLayout,
       'palette-reading': checkPaletteReading,
+      'control-names': checkEveryControlAnswersToWhatItSays,
       'big-text': checkLabelsSurviveBigText,
       targets: checkEveryControlIsFingerSized,
       offline: checkCrossOriginIsolationIsRestored,
       'dialog-download': checkDialogDownloadFailure,
       'slow-dialog': checkSlowDialogDismissal,
       'candidate-score': checkCandidateSearchKeepsPositionScore,
+      'book-actions': checkBookMoveAnalysisActions,
       'evaluation-source': checkEvaluationEngineProvenance,
       'pv-reuse': checkPvPreviewAndCommit,
       'review-source': checkReviewUsesSelectedEngine,
       'review-controls': browser => checkReviewUsesSelectedEngine(browser, true),
+      'review-actions': checkReviewActionNames,
       'review-export-recovery': checkReviewExportRecovery,
       'review-phase-accessibility': checkReviewPhaseAccessibility,
       'review-list-scroll': checkReviewListFollowsPosition,
+      'review-filter-scroll': checkReviewFilterScroll,
       'review-comparison': checkSavedReviews,
       'review-delete-focus': checkSavedReviewDeleteFocus,
       'saved-reviews': async browser => { await checkSavedReviews(browser); await checkSavedReviewStorage(browser); await checkSavedReviewEndings(browser) },
@@ -21506,10 +23789,14 @@ async function main() {
       'repetition': checkRepetitionEndings,
       'repetition-review': checkRepetitionReviewCompatibility,
       'finished-auto': checkFinishedAutomaticAnalysis,
+      'review-storage-focus': checkReviewStorageFocus,
       'review-backup-export': checkReviewBackupExport,
       'review-backup-import': checkReviewBackupImport,
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
+      'graph-coverage': checkGraphCoverage,
+      'graph-position-labels': checkGraphPositionLabels,
+      'move-times': checkMoveTimesAreGraphed,
       'observed-layout': checkObservedLayout,
       'narrow-desktop': checkNarrowDesktopLayout,
       'compact-toolbar': checkCompactToolbar,
@@ -21520,19 +23807,24 @@ async function main() {
       'portrait-dialogs': checkPortraitDialogReading,
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
+      'opening-focus': checkOpeningIntelFocus,
       'opening-layout': checkOpeningLayout,
       'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
       'tablebase': checkTheTablebaseAnswersForThisPosition,
       'archive-fetch': checkAnArchiveFetchBringsBackTheGames,
+      'archive-keyboard': checkArchiveKeyboardFetch,
+      'archive-preferences': checkArchivePreferences,
       'historical': checkTheHistoricalLibraryLoadsAGame,
       'lookup-failures': checkAFailedLookupSaysSoPlainly,
       'graph-guide': checkGraphEstimateGuide,
       'board-canvas': checkBoardCanvas,
       'typed-moves': checkTypedMoveEntry,
       'bishop-guidance': checkBishopEntryGuidance,
+      'bishop-rank-entry': checkBishopRankEntry,
       'move-entry-availability': checkMoveEntryAvailability,
       'command-move-entry': checkCommandMoveEntry,
       'autoplay': checkAutoplayWalksTheLine,
+      'finished-replay': checkFinishedGameReplay,
       'autoplay-speed': checkReplaySpeedAfterStep,
       'remote-retry': checkRemoteAnalysisRetry,
       'tablebase-reading': checkTablebaseMoveReading,
@@ -21543,6 +23835,9 @@ async function main() {
       'play-title': checkPlayTabTitle,
       'watch-title': checkWatchTabTitle,
       'preview-endings': checkPreviewEndingFeedback,
+      'preview-material': checkPreviewMaterial,
+      'capture-descriptions': checkCaptureDescriptions,
+      'dialog-held-close': checkDialogCloseRepeats,
       'dialog-handoff': checkDialogFocusHandoff,
       'palette-dialog-return': checkPaletteDialogReturn,
       'settings-toggle': checkSettingsGearToggle,
@@ -21564,6 +23859,7 @@ async function main() {
       'analysis-reuse': checkAutomaticAnalysisIsReused,
       'review-drift': checkReviewReportHoldsStill,
       'dialog-keyboard': checkADialogKeepsTheKeyboard,
+      'autosave-restore': checkAnInterruptedGameComesBack,
       'markup': checkTheMarkupSaysWhatItShows,
       'premove': checkAPremoveWaitsForItsTurn,
       'threat': checkTheThreatProbeAsksTheOtherSide,
@@ -21575,12 +23871,14 @@ async function main() {
       'chords': checkAChordBelongsToTheBrowser,
       'eval-bar': checkTheEvaluationBarSurvivesTheWdlSwitch,
       'library-double-save': checkOneGestureSavesOneGame,
+      'library-save-presence': checkLibrarySavedCopyPresence,
       'library-row-focus': checkLibraryRowFocusOwnership,
       'library-backup-reading': checkLibraryBackupReading,
       'library-editing': checkLibraryEditing,
       'international-search': checkInternationalLibrarySearch,
       'library-browsing': checkLibraryBrowsing,
       'library-starred': checkLibraryStarredFilter,
+      'library-matches': checkLibraryMatchingExport,
       'library-keyboard': checkLibraryKeyboardNavigation,
       'library-empty-focus': checkLibraryEmptyFocus,
       'confirmation-keys': checkConfirmationKeys,
@@ -21588,6 +23886,7 @@ async function main() {
       'clock-controls': checkPassAndPlayClockControls,
       'clock-transition-time': checkClockTransitionTimesSurviveQueuedWork,
       'recovery-ownership': checkRecoveryOwnershipIncludesSessionState,
+      'import-validation': checkImportValidation,
       'pgn-file-reading': checkPgnFileReading,
       'pgn-import-status': checkPgnImportStatusIsolation,
       'human-step-clock': checkHumanStepClockControls,
@@ -21618,6 +23917,7 @@ async function main() {
       'draw-mode': checkDrawModeEndsWithItsPurpose,
       'manual-copy': checkManualClipboardFallback,
       'live-export-copy': checkLiveExportCopy,
+      'pgn-export-settings': checkPgnExportPreferences,
       'live-share-copy': checkLiveShareFeedback,
       'text-composition': checkTextCompositionKeys,
       'reveal-dialogs': checkRevealTimersRespectDialogs,
@@ -21629,6 +23929,8 @@ async function main() {
       'pgn-after-variation': checkPostVariationNotes,
       'autosave-cursor': checkAutoSaveCursor,
       'position-notes': checkPositionStudyNotes,
+      'variation-expansion': checkVariationExpansion,
+      'deep-variations': checkDeepVariationNavigation,
       'autosave-lifecycle': checkAutosavePageLifecycle,
       'autosave-tabs': checkEmptyTabPreservesRecovery,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -22318,6 +24620,7 @@ async function main() {
     await checkDialogDownloadFailure(browser)
     await checkSlowDialogDismissal(browser)
     await checkTypedMoveEntry(browser)
+    await checkBishopRankEntry(browser)
     await checkBishopEntryGuidance(browser)
     await checkAutosaveFailure(browser)
     await checkAnalysisRetryCommand(browser)
@@ -22337,6 +24640,7 @@ async function main() {
     await checkConsoleWhitespace(browser)
     await checkPerftStopReleasesWorker(browser)
     await checkRawSpinOptionValues(browser)
+    await checkEngineOptionEntry(browser)
     await checkThreadConfigurationOwnership(browser)
     await checkConsoleDraftOwnership(browser)
     await checkConsoleHistoryAndErrors(browser)
@@ -22353,9 +24657,11 @@ async function main() {
     await checkSingleThreadReviewPool(browser)
     await checkCoachUsesPositionScore(browser)
     await checkBoundedScoreIsIgnored(browser)
+    await checkBookMoveAnalysisActions(browser)
     await checkCandidateSearchKeepsPositionScore(browser)
     await checkEvaluationEngineProvenance(browser)
     await checkPvPreviewAndCommit(browser)
+    await checkReviewActionNames(browser)
     await checkReviewUsesSelectedEngine(browser, true)
     await checkSavedReviewSearch(browser)
     await checkSavedReviews(browser)
@@ -22369,6 +24675,7 @@ async function main() {
     await checkRepetitionEndings(browser)
     await checkRepetitionReviewCompatibility(browser)
     await checkFinishedAutomaticAnalysis(browser)
+    await checkReviewStorageFocus(browser)
     await checkReviewBackupExport(browser)
     await checkReviewBackupImport(browser)
     await checkReviewAtRequestedDepth(browser)
@@ -22397,6 +24704,7 @@ async function main() {
     await checkPassAndPlayClockControls(browser)
     await checkClockTransitionTimesSurviveQueuedWork(browser)
     await checkRecoveryOwnershipIncludesSessionState(browser)
+    await checkImportValidation(browser)
     await checkPgnFileReading(browser)
     await checkPgnImportStatusIsolation(browser)
     await checkHumanStepClockControls(browser)
@@ -22404,6 +24712,7 @@ async function main() {
     await checkQueuedStepWaitsForReady(browser)
     await checkNavigationKeepsTheClockHonest(browser)
     await checkKeepSearchingIsUnbounded(browser)
+    await checkFinishedGameReplay(browser)
     await checkAutoplayWalksTheLine(browser)
     await checkReplaySpeedAfterStep(browser)
     await checkTypedMoveLands(browser)
@@ -22443,6 +24752,8 @@ async function main() {
     await checkTheBoardIsNotADeadZone(browser)
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
+    await checkGraphCoverage(browser)
+    await checkGraphPositionLabels(browser)
     await checkObservedLayout(browser)
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)
@@ -22451,6 +24762,7 @@ async function main() {
     await checkShortDesktopDialogs(browser)
     await checkPortraitDialogReading(browser)
     await checkCompactFooter(browser)
+    await checkOpeningIntelFocus(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
     await checkOpeningNumbersBelongToTheirPosition(browser)
@@ -22464,6 +24776,9 @@ async function main() {
     await checkPlayTabTitle(browser)
     await checkWatchTabTitle(browser)
     await checkPreviewEndingFeedback(browser)
+    await checkPreviewMaterial(browser)
+    await checkCaptureDescriptions(browser)
+    await checkDialogCloseRepeats(browser)
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)
     await checkSettingsGearToggle(browser)
@@ -22485,6 +24800,8 @@ async function main() {
     await checkLabelsSurviveBigText(browser)
     await checkADeadFetchButtonSaysWhy(browser)
     await checkAnArchiveFetchBringsBackTheGames(browser)
+    await checkArchiveKeyboardFetch(browser)
+    await checkArchivePreferences(browser)
     await checkTheHistoricalLibraryLoadsAGame(browser)
     await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)
@@ -22493,11 +24810,13 @@ async function main() {
     await checkLibraryBackupReading(browser)
     await checkPartialLibraryBackup(browser)
     await checkOneGestureSavesOneGame(browser)
+    await checkLibrarySavedCopyPresence(browser)
     await checkLibraryEditing(browser)
     await checkInternationalLibrarySearch(browser)
     await checkLibraryBrowsing(browser)
     await checkLibraryRowFocusOwnership(browser)
     await checkLibraryStarredFilter(browser)
+    await checkLibraryMatchingExport(browser)
     await checkLibraryKeyboardNavigation(browser)
     await checkLibraryEmptyFocus(browser)
     await checkViewportResizePreservesGesture(browser)
@@ -22510,6 +24829,7 @@ async function main() {
     await checkFenCopyPreservesDraft(browser)
     await checkManualClipboardFallback(browser)
     await checkLiveExportCopy(browser)
+    await checkPgnExportPreferences(browser)
     await checkLiveShareFeedback(browser)
     await checkTextCompositionKeys(browser)
     await checkRevealTimersRespectDialogs(browser)
@@ -22517,9 +24837,12 @@ async function main() {
     await checkReviewPhaseAccessibility(browser)
     await checkReviewExportRecovery(browser)
     await checkReviewListFollowsPosition(browser)
+    await checkReviewFilterScroll(browser)
     await checkDialogResizeFocus(browser)
     await checkAutoSaveCursor(browser)
     await checkPositionStudyNotes(browser)
+    await checkVariationExpansion(browser)
+    await checkDeepVariationNavigation(browser)
     await checkAutosavePageLifecycle(browser)
     await checkEmptyTabPreservesRecovery(browser)
     await checkPostVariationNotes(browser)

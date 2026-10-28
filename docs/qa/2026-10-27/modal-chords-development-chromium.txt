@@ -1,0 +1,25 @@
+{"browser":"chromium","port":"4324","commit":"94e72eaa0e955f9c198789f904d9d1f4f582fa78","build":"Vite development source","dirty":true,"checks":["checkADialogKeepsTheKeyboard","checkTextCompositionKeys","checkSavedReviewRenaming","checkAnInterruptedGameComesBack"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkADialogKeepsTheKeyboard
+  dialog browser chords (.settings-body): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  settings dialog: all 26 focusable controls are inside the trap, disclosure included
+  backdrop: clicking away closes the dialog and returns focus to its opener
+  dialog browser chords (.new-game-dialog): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  New game: 11 focusable controls, all inside the trap
+  dialog browser chords (.pgn-dialog): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  PGN and FEN: 10 focusable controls, all inside the trap
+  dialog browser chords (.library-dialog): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  Library: 2 focusable controls, all inside the trap
+  dialog browser chords (.command-palette): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  Command palette: 26 focusable controls, all inside the trap
+  dialog browser chords (.promotion-overlay): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  Promotion chooser: 5 focusable controls, all inside the trap
+checkTextCompositionKeys
+  text composition: Enter/Escape and legacy 229 preserve Commands, archive and rename drafts; native Shift+Escape and modified Escape retain the Library rename draft; ordinary keys still work
+checkSavedReviewRenaming
+  review naming (1280px): selected draft/plain Escape cancel, browser/composing Escape preserved, held/composing Enter, fresh reopen, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review naming (375px): selected draft/plain Escape cancel, browser/composing Escape preserved, held/composing Enter, fresh reopen, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+checkAnInterruptedGameComesBack
+  dialog browser chords (.auto-save-recovery): native Shift+Escape/Ctrl+Tab pass through; modified/composing Escape and browser Tab chords preserve both focus edges
+  recovery: reload restores moves; incidental dismissals preserve valid/failed snapshots; explicit discard clears them
+Development focused checks passed.

@@ -1,0 +1,33 @@
+{
+  "browser": "chromium",
+  "before": {
+    "scenario": "commands",
+    "afterFirst": {
+      "tag": "INPUT",
+      "label": "Search commands"
+    },
+    "afterRepeat": {
+      "tag": "BUTTON",
+      "label": "Cancel"
+    },
+    "commandsOpen": 0,
+    "newGameOpen": 0,
+    "recentCommands": [
+      "new-game"
+    ]
+  },
+  "after": {
+    "scenario": "commands",
+    "afterFirst": {
+      "tag": "INPUT",
+      "label": "Search commands"
+    },
+    "afterRepeat": {
+      "tag": "INPUT",
+      "label": "Search commands"
+    },
+    "commandsOpen": 1,
+    "newGameOpen": 0,
+    "recentCommands": []
+  }
+}

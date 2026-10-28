@@ -3,12 +3,13 @@ import { isCompositionKey } from './shortcutKeys'
 import { parseFenCounterValue } from '../engine/fen'
 import { truncateUtf16 } from '../engine/textLength'
 
-export function PositionCounterInput({ id, value, rawValue, min, position, onValueChange }: {
+export function PositionCounterInput({ id, value, rawValue, min, position, descriptionId, onValueChange }: {
   id: string
   value: number
   rawValue: string | undefined
   min: number
   position: object
+  descriptionId?: string
   onValueChange: (value: number) => void
 }) {
   const rawNumber = useMemo(() => parseFenCounterValue(rawValue), [rawValue])
@@ -23,19 +24,22 @@ export function PositionCounterInput({ id, value, rawValue, min, position, onVal
     setDraft(String(safeValue))
   }
 
+  const draftTooLarge = Math.abs(Number(draft)) > Number.MAX_SAFE_INTEGER
   const commit = (explicit = false) => {
     const parsed = Number(draft)
-    const candidate = Boolean(draft.trim()) && Number.isFinite(parsed)
+    const candidate = Boolean(draft.trim()) && Number.isSafeInteger(Math.floor(parsed))
     const next = candidate ? Math.max(min, Math.floor(parsed)) : safeValue
     setDraft(String(next))
     if (next !== safeValue || (rawInvalid && (explicit || (candidate && draft.trim() !== String(safeValue))))) onValueChange(next)
   }
   const errorId = `${id}-raw-error`
+  const rangeErrorId = `${id}-range-error`
   const preview = useMemo(() => rawValue === undefined ? ''
     : truncateUtf16(rawValue, 32) + (rawValue.length > 32 ? '…' : ''), [rawValue])
 
-  return <><input id={id} type="number" min={min} step={1} inputMode="numeric" value={draft}
-    aria-invalid={rawInvalid || undefined} aria-describedby={rawInvalid ? errorId : undefined}
+  return <><input id={id} type="number" min={min} max={Number.MAX_SAFE_INTEGER} step={1} inputMode="numeric" value={draft}
+    aria-invalid={rawInvalid || draftTooLarge || undefined}
+    aria-describedby={[draftTooLarge ? rangeErrorId : undefined, rawInvalid ? errorId : undefined, descriptionId].filter(Boolean).join(' ') || undefined}
     // Replacing the shown fallback with the same number is still an explicit
     // repair. onInput also sees that edit when React's change tracker does not.
     onInput={event => {
@@ -44,7 +48,7 @@ export function PositionCounterInput({ id, value, rawValue, min, position, onVal
       const parsed = Number(text)
       // Valid edits update the FEN immediately. A blank or partial number
       // remains an editable draft until blur or Enter.
-      if (text.trim() && Number.isFinite(parsed) && Number.isInteger(parsed) && parsed >= min && (parsed !== safeValue || rawInvalid)) {
+      if (text.trim() && Number.isSafeInteger(parsed) && parsed >= min && (parsed !== safeValue || rawInvalid)) {
         onValueChange(parsed)
       }
     }}
@@ -54,6 +58,9 @@ export function PositionCounterInput({ id, value, rawValue, min, position, onVal
       event.preventDefault()
       commit(true)
     }} />
+    {draftTooLarge && <p id={rangeErrorId} className="fen-counter-error">
+      Too large to read accurately. Press Enter to keep {safeValue}.
+    </p>}
     {rawInvalid && <p id={errorId} className="fen-counter-error">
       {rawValue === undefined ? 'Missing in FEN.' : `FEN: “${preview}”.`} Press Enter for {safeValue}.
     </p>}

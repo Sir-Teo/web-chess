@@ -1,0 +1,15 @@
+{
+  "result": "Checkmate · Black wins",
+  "actions": [
+    " Review this game",
+    " Play again"
+  ],
+  "autoplayButtons": 0,
+  "moves": [
+    "f3",
+    "e5",
+    "g4",
+    "Qh4#"
+  ],
+  "mode": "Human vs AI"
+}

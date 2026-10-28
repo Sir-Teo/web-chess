@@ -1,0 +1,13 @@
+{"browser":"firefox","port":"4324","commit":"bb6e8ba7e53b0f5e799689aab03e5172d9994431","build":"Vite development source","dirty":true,"checks":["checkPgnFileReading","checkPositionSetupEnPassant","checkASavedGameComesBack"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkPgnFileReading
+  PGN file reading (1280×900, 1x, dark): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+  PGN file reading (375×812, 2x, light): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+  PGN file reading (320×812, 2x, dark): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+  PGN file reading (844×390, 2x, light): associated progress/Cancel, fitting/coarse target/contrast, focused retry, stale resolve/reject ownership, own failure, paste/tab/close cancellation and exact Unicode/variation import pass without changing the board before explicit import
+checkPositionSetupEnPassant
+  position setup (1280px): d6 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+  position setup (375px): e3 survives a counter edit, can be cleared/restored, and allows a real en passant capture
+checkASavedGameComesBack
+  library: a game with side lines saved and loaded back byte for byte (291 characters)
+Development focused checks passed.

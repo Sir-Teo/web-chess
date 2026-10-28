@@ -1,0 +1,221 @@
+{
+  "browser": "webkit",
+  "results": [
+    {
+      "width": 1280,
+      "height": 900,
+      "scale": 1,
+      "theme": "dark",
+      "texts": [
+        "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+        "Fullmove: Current move number. Increases after Black moves."
+      ],
+      "invalidDescriptions": [
+        [
+          {
+            "id": "_r_15_-raw-error",
+            "text": "FEN: \u201c0junk\u201d. Press Enter for 0.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_15_-help",
+            "text": "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+            "error": false,
+            "help": true
+          }
+        ],
+        [
+          {
+            "id": "_r_16_-raw-error",
+            "text": "FEN: \u201c0\u201d. Press Enter for 1.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_16_-help",
+            "text": "Fullmove: Current move number. Increases after Black moves.",
+            "error": false,
+            "help": true
+          }
+        ]
+      ],
+      "contrast": [
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        },
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        }
+      ],
+      "afterWhite": "7k/8/8/8/8/7P/8/K7 b - - 0 23",
+      "afterBlack": "6k1/8/8/8/8/7P/8/K7 w - - 1 24"
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scale": 1,
+      "theme": "light",
+      "texts": [
+        "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+        "Fullmove: Current move number. Increases after Black moves."
+      ],
+      "invalidDescriptions": [
+        [
+          {
+            "id": "_r_15_-raw-error",
+            "text": "FEN: \u201c0junk\u201d. Press Enter for 0.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_15_-help",
+            "text": "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+            "error": false,
+            "help": true
+          }
+        ],
+        [
+          {
+            "id": "_r_16_-raw-error",
+            "text": "FEN: \u201c0\u201d. Press Enter for 1.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_16_-help",
+            "text": "Fullmove: Current move number. Increases after Black moves.",
+            "error": false,
+            "help": true
+          }
+        ]
+      ],
+      "contrast": [
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        },
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        }
+      ],
+      "afterWhite": "7k/8/8/8/8/7P/8/K7 b - - 0 23",
+      "afterBlack": "6k1/8/8/8/8/7P/8/K7 w - - 1 24"
+    },
+    {
+      "width": 320,
+      "height": 812,
+      "scale": 2,
+      "theme": "dark",
+      "texts": [
+        "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+        "Fullmove: Current move number. Increases after Black moves."
+      ],
+      "invalidDescriptions": [
+        [
+          {
+            "id": "_r_b_-raw-error",
+            "text": "FEN: \u201c0junk\u201d. Press Enter for 0.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_b_-help",
+            "text": "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+            "error": false,
+            "help": true
+          }
+        ],
+        [
+          {
+            "id": "_r_c_-raw-error",
+            "text": "FEN: \u201c0\u201d. Press Enter for 1.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_c_-help",
+            "text": "Fullmove: Current move number. Increases after Black moves.",
+            "error": false,
+            "help": true
+          }
+        ]
+      ],
+      "contrast": [
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        },
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        }
+      ],
+      "afterWhite": "7k/8/8/8/8/7P/8/K7 b - - 0 23",
+      "afterBlack": "6k1/8/8/8/8/7P/8/K7 w - - 1 24"
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "scale": 2,
+      "theme": "light",
+      "texts": [
+        "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+        "Fullmove: Current move number. Increases after Black moves."
+      ],
+      "invalidDescriptions": [
+        [
+          {
+            "id": "_r_b_-raw-error",
+            "text": "FEN: \u201c0junk\u201d. Press Enter for 0.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_b_-help",
+            "text": "Halfmove: Moves since the last pawn move or capture. Each player's move counts.",
+            "error": false,
+            "help": true
+          }
+        ],
+        [
+          {
+            "id": "_r_c_-raw-error",
+            "text": "FEN: \u201c0\u201d. Press Enter for 1.",
+            "error": true,
+            "help": false
+          },
+          {
+            "id": "_r_c_-help",
+            "text": "Fullmove: Current move number. Increases after Black moves.",
+            "error": false,
+            "help": true
+          }
+        ]
+      ],
+      "contrast": [
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        },
+        {
+          "failures": [],
+          "unverified": 0,
+          "checked": 2
+        }
+      ],
+      "afterWhite": "7k/8/8/8/8/7P/8/K7 b - - 0 23",
+      "afterBlack": "6k1/8/8/8/8/7P/8/K7 w - - 1 24"
+    }
+  ]
+}

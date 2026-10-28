@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { MAX_SAVED_REVIEW_TITLE_LENGTH } from '../engine/savedReviews'
-import { isCompositionKey } from './shortcutKeys'
+import { isCompositionKey, isPlainShortcut } from './shortcutKeys'
 
 export function SavedReviewNameEditor({ title, disabled, onRename }: {
   title: string
@@ -46,21 +46,25 @@ export function SavedReviewNameEditor({ title, disabled, onRename }: {
 
   return <div ref={editor} className="saved-review-name-editor">
     <div className="review-report-actions">
-      <button ref={trigger} type="button" disabled={disabled || editing} onClick={() => {
+      <button ref={trigger} type="button" disabled={disabled || editing} onKeyDown={event => {
+        if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+      }} onClick={() => {
         setDraft(title)
         setError('')
         setFocusRequest(0)
         setEditing(true)
       }}>Rename saved review</button>
     </div>
-    {editing && <form onSubmit={event => { event.preventDefault(); void save() }}>
+    {editing && <form onKeyDown={event => {
+      if (event.key === 'Enter' && (event.repeat || isCompositionKey(event.nativeEvent))) event.preventDefault()
+    }} onSubmit={event => { event.preventDefault(); void save() }}>
       <label htmlFor={id}>Saved review name</label>
       <input ref={input} id={id} className="saved-review-name-input" value={draft}
         maxLength={MAX_SAVED_REVIEW_TITLE_LENGTH} readOnly={disabled}
         aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined}
         onChange={event => { setDraft(event.target.value); setError('') }}
         onKeyDown={event => {
-          if (event.key !== 'Escape' || disabled || isCompositionKey(event.nativeEvent)) return
+          if (event.key !== 'Escape' || disabled || !isPlainShortcut(event.nativeEvent) || isCompositionKey(event.nativeEvent)) return
           event.preventDefault()
           event.stopPropagation()
           cancel()

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { isCompositionKey } from '../components/shortcutKeys'
+import { isCompositionKey, isPlainShortcut } from '../components/shortcutKeys'
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -193,12 +193,13 @@ export function useModalFocus(
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isCompositionKey(event)) return
       if (event.key === 'Escape') {
+        if (!isPlainShortcut(event)) return
         event.preventDefault()
         if (closeOnEscape) onCloseRef.current()
         return
       }
 
-      if (!trapFocus || event.key !== 'Tab') return
+      if (!trapFocus || event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return
       steppingBackwards = event.shiftKey
       const focusable = getFocusable()
       if (!focusable.length) return

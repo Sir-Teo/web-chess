@@ -1,0 +1,34 @@
+[
+  {
+    "mode": "play",
+    "study": false,
+    "title": "Analysis",
+    "tab": "Analyze",
+    "inert": false,
+    "width": 320
+  },
+  {
+    "mode": "play",
+    "study": true,
+    "title": "Analysis",
+    "tab": "Analyze",
+    "inert": false,
+    "width": 320
+  },
+  {
+    "mode": "analysis",
+    "study": false,
+    "title": "Analysis",
+    "tab": "Analyze",
+    "inert": false,
+    "width": 320
+  },
+  {
+    "mode": "analysis",
+    "study": true,
+    "title": "Analysis",
+    "tab": "Analyze",
+    "inert": false,
+    "width": 320
+  }
+]

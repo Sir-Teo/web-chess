@@ -1,0 +1,7 @@
+{"browser":"webkit","port":"4324","commit":"958c4804423f6f128a9e37d0ff6e5b74dcf6f7a3","build":"Vite development source","dirty":true,"checks":["checkReviewStorageFocus"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkReviewStorageFocus
+  review storage focus (1280px, 1x, dark): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor
+  review storage focus (375px, 1x, light): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor
+  review storage focus (320px, 2x, light): Save selects its committed review; save/export/import failures retain focused retries; real native-worker backups preserve exact records without duplicates; delayed writes/export/import respect newer board focus and preserve the report/cursor
+Development focused checks passed.

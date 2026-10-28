@@ -1,0 +1,12 @@
+[
+  {
+    "state": "ready",
+    "visible": "Copy Game Link",
+    "accessibleName": "- button \"Copy Game Link\":\n  - img\n  - text: Copy Game Link"
+  },
+  {
+    "state": "copied",
+    "visible": "Copied Link",
+    "accessibleName": "- button \"Copied Link\":\n  - img\n  - text: Copied Link"
+  }
+]

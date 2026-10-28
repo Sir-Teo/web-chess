@@ -1,0 +1,10 @@
+{
+  "browser": "chromium",
+  "afterFirst": 0,
+  "afterRepeat": 1,
+  "focused": "<input id=\"_r_a_-name\" maxlength=\"120\" value=\"Renamed Alpha\">",
+  "rows": [
+    "Renamed Alpha",
+    "Beta"
+  ]
+}

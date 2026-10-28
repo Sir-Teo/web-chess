@@ -1,0 +1,49 @@
+{
+  "browser": "chromium",
+  "readings": [
+    {
+      "width": 1280,
+      "touch": false,
+      "phases": [
+        {
+          "move": "e5",
+          "focused": true,
+          "active": "INPUT",
+          "draft": "e5",
+          "error": "No pawn can go to e5 here.",
+          "rows": 0
+        },
+        {
+          "move": "e4",
+          "focused": true,
+          "active": "INPUT",
+          "draft": "",
+          "error": "",
+          "rows": 1
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "touch": true,
+      "phases": [
+        {
+          "move": "e5",
+          "focused": true,
+          "active": "INPUT",
+          "draft": "e5",
+          "error": "No pawn can go to e5 here.",
+          "rows": 0
+        },
+        {
+          "move": "e4",
+          "focused": true,
+          "active": "INPUT",
+          "draft": "",
+          "error": "",
+          "rows": 1
+        }
+      ]
+    }
+  ]
+}

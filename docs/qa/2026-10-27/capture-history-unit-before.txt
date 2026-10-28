@@ -1,0 +1,136 @@
+
+ RUN  v4.1.12 /workspace/web-chess
+
+ ❯ src/engine/material.test.ts (23 tests | 3 failed) 41ms
+     × does not call a quietly promoted White pawn captured 8ms
+     × does not call a quietly underpromoted Black pawn captured 2ms
+     × records a promotion capture and the later capture of the promoted piece 3ms
+ ❯ src/engine/analysis.test.ts (105 tests | 1 failed) 306ms
+     × retains actual captures and colours when a cached line is extended 14ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/analysis.test.ts > pvLineMoves > retains actual captures and colours when a cached line is extended
+AssertionError: expected [ { color: undefined, …(1) }, …(3) ] to deeply equal [ { color: 'w', …(1) }, …(3) ]
+
+- Expected
++ Received
+
+  [
+    {
+      "captured": undefined,
+-     "color": "w",
++     "color": undefined,
+    },
+    {
+      "captured": undefined,
+-     "color": "b",
++     "color": undefined,
+    },
+    {
+-     "captured": "p",
+-     "color": "w",
++     "captured": undefined,
++     "color": undefined,
+    },
+    {
+-     "captured": "p",
+-     "color": "b",
++     "captured": undefined,
++     "color": undefined,
+    },
+  ]
+
+ ❯ src/engine/analysis.test.ts:1286:84
+    1284|     pvLineMoves(START, pv.slice(0, 3))
+    1285|     const extended = pvLineMoves(START, pv)
+    1286|     expect(extended.map(move => ({ color: move.color, captured: move.c…
+       |                                                                                    ^
+    1287|       { color: 'w', captured: undefined }, { color: 'b', captured: und…
+    1288|       { color: 'w', captured: 'p' }, { color: 'b', captured: 'p' },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/engine/material.test.ts > captures from the actual line > does not call a quietly promoted White pawn captured
+AssertionError: expected { delta: 9, capturedByWhite: [], …(1) } to deeply equal { delta: 9, capturedByWhite: [], …(1) }
+
+- Expected
++ Received
+
+  {
+-   "capturedByBlack": [],
++   "capturedByBlack": [
++     "p",
++   ],
+    "capturedByWhite": [],
+    "delta": 9,
+  }
+
+ ❯ src/engine/material.test.ts:96:8
+     94|   it('does not call a quietly promoted White pawn captured', () => {
+     95|     expect(afterLine('8/P6k/8/8/8/8/7K/8 w - - 0 1', ['a8=Q']))
+     96|       .toEqual({ delta: 9, capturedByWhite: [], capturedByBlack: [] })
+       |        ^
+     97|   })
+     98|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/engine/material.test.ts > captures from the actual line > does not call a quietly underpromoted Black pawn captured
+AssertionError: expected { delta: -3, …(2) } to deeply equal { Object (delta, capturedByWhite, ...) }
+
+- Expected
++ Received
+
+  {
+    "capturedByBlack": [],
+-   "capturedByWhite": [],
++   "capturedByWhite": [
++     "p",
++   ],
+    "delta": -3,
+  }
+
+ ❯ src/engine/material.test.ts:101:8
+     99|   it('does not call a quietly underpromoted Black pawn captured', () =…
+    100|     expect(afterLine('7k/8/8/8/8/8/p6K/8 b - - 0 1', ['a1=N']))
+    101|       .toEqual({ delta: -3, capturedByWhite: [], capturedByBlack: [] })
+       |        ^
+    102|   })
+    103|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/engine/material.test.ts > captures from the actual line > records a promotion capture and the later capture of the promoted piece
+AssertionError: expected { delta: 10, …(2) } to deeply equal { delta: 10, …(2) }
+
+- Expected
++ Received
+
+  {
+-   "capturedByBlack": [],
++   "capturedByBlack": [
++     "p",
++   ],
+    "capturedByWhite": [
+      "r",
+    ],
+    "delta": 10,
+  }
+
+ ❯ src/engine/material.test.ts:107:8
+    105|     const root = '1rk5/P7/8/8/8/8/7P/7K w - - 0 1'
+    106|     expect(afterLine(root, ['axb8=Q+']))
+    107|       .toEqual({ delta: 10, capturedByWhite: ['r'], capturedByBlack: […
+       |        ^
+    108|     expect(afterLine(root, ['axb8=Q+', 'Kxb8']))
+    109|       .toEqual({ delta: 1, capturedByWhite: ['r'], capturedByBlack: ['…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 124 passed (128)
+   Start at  04:08:26
+   Duration  724ms (transform 305ms, setup 0ms, import 394ms, tests 347ms, environment 0ms)
+

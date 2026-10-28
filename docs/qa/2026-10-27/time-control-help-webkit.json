@@ -1,0 +1,74 @@
+{
+  "browser": "webkit",
+  "build": "Vite development source",
+  "readings": [
+    {
+      "width": 133.46875,
+      "height": 44.96875,
+      "scale": 1,
+      "theme": "dark",
+      "help": "Minutes per side + seconds added after each move.",
+      "helpFits": true,
+      "selected": "15 + 10: Rapid",
+      "focused": true,
+      "hit": true,
+      "overflow": false,
+      "contrastChecked": 1,
+      "clocks": {
+        "black": "15:00",
+        "white": "15:09"
+      }
+    },
+    {
+      "width": 168.3125,
+      "height": 44.96875,
+      "scale": 1,
+      "theme": "light",
+      "help": "Minutes per side + seconds added after each move.",
+      "helpFits": true,
+      "selected": "15 + 10: Rapid",
+      "focused": true,
+      "hit": true,
+      "overflow": false,
+      "contrastChecked": 1,
+      "clocks": {
+        "black": "15:00",
+        "white": "15:09"
+      }
+    },
+    {
+      "width": 103.609375,
+      "height": 88.96875,
+      "scale": 2,
+      "theme": "dark",
+      "help": "Minutes per side + seconds added after each move.",
+      "helpFits": true,
+      "selected": "15 + 10: Rapid",
+      "focused": true,
+      "hit": true,
+      "overflow": false,
+      "contrastChecked": 1,
+      "clocks": {
+        "black": "15:00",
+        "white": "15:09"
+      }
+    },
+    {
+      "width": 230.28125,
+      "height": 88.96875,
+      "scale": 2,
+      "theme": "light",
+      "help": "Minutes per side + seconds added after each move.",
+      "helpFits": true,
+      "selected": "15 + 10: Rapid",
+      "focused": true,
+      "hit": true,
+      "overflow": false,
+      "contrastChecked": 1,
+      "clocks": {
+        "black": "15:00",
+        "white": "15:09"
+      }
+    }
+  ]
+}

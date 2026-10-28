@@ -1,0 +1,33 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+dist/assets/index-DQ3HyB4k.css              135.39 kB │ gzip:  25.16 kB
+dist/assets/NewGameDialog-Rv02FUzc.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-XzD1nXVd.js        15.33 kB │ gzip:   5.29 kB
+dist/assets/PgnDialog-DP6ysWgt.js            33.34 kB │ gzip:  11.13 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-4nNz6bTs.js               419.03 kB │ gzip: 135.48 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.51s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  palette tabs: Engine Lab from Play mode lands on ["Analyze:false","Review:false","Engine Lab:true"]
+  palette tab reveal: 12 collapsed-panel destinations reopen from Play/Analysis at desktop and 901px/200% text; saved width, board and command draft survive; Review game opens and completes from Play, Analyze and Engine Lab
+  review actions (1280×900, 1x, pro, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (375×812, 1x, beginner, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (320×812, 2x, pro, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (844×390, 2x, beginner, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+Focused browser UI checks passed.

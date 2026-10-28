@@ -1,0 +1,142 @@
+{
+  "browser": "webkit",
+  "build": "Vite development source",
+  "readings": [
+    {
+      "width": 1280,
+      "height": 900,
+      "scale": 1,
+      "theme": "dark",
+      "normal": [
+        {
+          "label": "Move for White",
+          "placeholder": "e4, Nf3 or e2e4",
+          "emptyTitle": "Type a move first, such as e4, Nf3 or e2e4.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.",
+          "error": "That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N."
+        },
+        {
+          "label": "Move for Black",
+          "placeholder": "e5, Nf6 or e7e5",
+          "emptyTitle": "Type a move first, such as e5, Nf6 or e7e5.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a1=Q or a2a1n.",
+          "error": "That move is not legal here. Use e5, Nf6 or e7e5; include the piece for promotion, such as a1=N."
+        }
+      ],
+      "promotions": [
+        {
+          "side": "White",
+          "suggested": "a7a8n",
+          "piece": "wN"
+        },
+        {
+          "side": "Black",
+          "suggested": "a2a1n",
+          "piece": "bN"
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scale": 1,
+      "theme": "light",
+      "normal": [
+        {
+          "label": "Move for White",
+          "placeholder": "e4, Nf3 or e2e4",
+          "emptyTitle": "Type a move first, such as e4, Nf3 or e2e4.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.",
+          "error": "That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N."
+        },
+        {
+          "label": "Move for Black",
+          "placeholder": "e5, Nf6 or e7e5",
+          "emptyTitle": "Type a move first, such as e5, Nf6 or e7e5.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a1=Q or a2a1n.",
+          "error": "That move is not legal here. Use e5, Nf6 or e7e5; include the piece for promotion, such as a1=N."
+        }
+      ],
+      "promotions": [
+        {
+          "side": "White",
+          "suggested": "a7a8n",
+          "piece": "wN"
+        },
+        {
+          "side": "Black",
+          "suggested": "a2a1n",
+          "piece": "bN"
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "height": 812,
+      "scale": 2,
+      "theme": "dark",
+      "normal": [
+        {
+          "label": "Move for White",
+          "placeholder": "e4, Nf3 or e2e4",
+          "emptyTitle": "Type a move first, such as e4, Nf3 or e2e4.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.",
+          "error": "That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N."
+        },
+        {
+          "label": "Move for Black",
+          "placeholder": "e5, Nf6 or e7e5",
+          "emptyTitle": "Type a move first, such as e5, Nf6 or e7e5.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a1=Q or a2a1n.",
+          "error": "That move is not legal here. Use e5, Nf6 or e7e5; include the piece for promotion, such as a1=N."
+        }
+      ],
+      "promotions": [
+        {
+          "side": "White",
+          "suggested": "a7a8n",
+          "piece": "wN"
+        },
+        {
+          "side": "Black",
+          "suggested": "a2a1n",
+          "piece": "bN"
+        }
+      ]
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "scale": 2,
+      "theme": "light",
+      "normal": [
+        {
+          "label": "Move for White",
+          "placeholder": "e4, Nf3 or e2e4",
+          "emptyTitle": "Type a move first, such as e4, Nf3 or e2e4.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.",
+          "error": "That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N."
+        },
+        {
+          "label": "Move for Black",
+          "placeholder": "e5, Nf6 or e7e5",
+          "emptyTitle": "Type a move first, such as e5, Nf6 or e7e5.",
+          "help": "Type one move and press Enter. Castle with O-O; promote with a1=Q or a2a1n.",
+          "error": "That move is not legal here. Use e5, Nf6 or e7e5; include the piece for promotion, such as a1=N."
+        }
+      ],
+      "promotions": [
+        {
+          "side": "White",
+          "suggested": "a7a8n",
+          "piece": "wN"
+        },
+        {
+          "side": "Black",
+          "suggested": "a2a1n",
+          "piece": "bN"
+        }
+      ]
+    }
+  ]
+}

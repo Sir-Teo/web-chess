@@ -1,0 +1,69 @@
+{
+  "browser": "firefox",
+  "results": [
+    {
+      "fieldName": "Halfmove",
+      "raw": "9007199254740993",
+      "typed": {
+        "field": "9007199254740993",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": "true",
+        "canLoad": true
+      },
+      "committed": {
+        "field": "17",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": null,
+        "canLoad": true
+      }
+    },
+    {
+      "fieldName": "Halfmove",
+      "raw": "1e30",
+      "typed": {
+        "field": "1e30",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": "true",
+        "canLoad": true
+      },
+      "committed": {
+        "field": "17",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": null,
+        "canLoad": true
+      }
+    },
+    {
+      "fieldName": "Fullmove",
+      "raw": "9007199254740993",
+      "typed": {
+        "field": "9007199254740993",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": "true",
+        "canLoad": true
+      },
+      "committed": {
+        "field": "23",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": null,
+        "canLoad": true
+      }
+    },
+    {
+      "fieldName": "Fullmove",
+      "raw": "1e30",
+      "typed": {
+        "field": "1e30",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": "true",
+        "canLoad": true
+      },
+      "committed": {
+        "field": "23",
+        "fen": "4k3/8/8/8/8/8/8/4K3 w - - 17 23",
+        "invalid": null,
+        "canLoad": true
+      }
+    }
+  ]
+}

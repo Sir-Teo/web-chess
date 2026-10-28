@@ -1,0 +1,44 @@
+{
+  "browser": "chromium",
+  "shiftDown": {
+    "before": "_r_3_-mode-analysis",
+    "after": {
+      "active": "_r_3_-mode-analysis",
+      "selection": [
+        2,
+        8
+      ],
+      "value": "analysis"
+    }
+  },
+  "controlEnter": {
+    "paletteOpen": 1,
+    "recent": []
+  },
+  "events": [
+    {
+      "key": "Shift",
+      "shift": true,
+      "ctrl": false,
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "shift": true,
+      "ctrl": false,
+      "prevented": false
+    },
+    {
+      "key": "Control",
+      "shift": false,
+      "ctrl": true,
+      "prevented": false
+    },
+    {
+      "key": "Enter",
+      "shift": false,
+      "ctrl": true,
+      "prevented": false
+    }
+  ]
+}

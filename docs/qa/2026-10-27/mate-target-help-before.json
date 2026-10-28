@@ -1,0 +1,14 @@
+{
+  "browser": "chromium",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "theme": "dark",
+      "label": "Mate target (plies)",
+      "value": "3",
+      "help": null,
+      "command": "go mate 3"
+    }
+  ]
+}

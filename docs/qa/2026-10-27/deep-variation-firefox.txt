@@ -1,0 +1,34 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+dist/assets/index-DQmGE-9b.css              135.27 kB │ gzip:  25.14 kB
+dist/assets/NewGameDialog-Dy9OeCII.js         4.36 kB │ gzip:   1.57 kB
+dist/assets/LibraryDialog-DpFfKmos.js        15.21 kB │ gzip:   5.22 kB
+dist/assets/PgnDialog-BRS7Tw-T.js            33.28 kB │ gzip:  11.10 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-Cyw5Rx0m.js               418.19 kB │ gzip: 135.13 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.38s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  deep variations (1280×900, 1x, dark): bounded unselected previews; named Enter/Space actions and focus handoff; deepest move, unique current marker and note survive ordinary keyboard navigation; leaving restores the preview
+  deep variations (375×812, 1x, light): bounded unselected previews; named Enter/Space actions and focus handoff; deepest move, unique current marker and note survive ordinary keyboard navigation; leaving restores the preview
+  deep variations (320×812, 2x, dark): bounded unselected previews; named Enter/Space actions and focus handoff; deepest move, unique current marker and note survive ordinary keyboard navigation; leaving restores the preview
+  deep variations (844×390, 2x, light): bounded unselected previews; named Enter/Space actions and focus handoff; deepest move, unique current marker and note survive ordinary keyboard navigation; leaving restores the preview
+  variation expansion (1280×900, 1x, dark): keyboard/pointer expand and collapse, independent branches, retained focus/current move/note, unchanged PGN, fresh game reset and fitting touch control
+  variation expansion (375×812, 1x, light): keyboard/pointer expand and collapse, independent branches, retained focus/current move/note, unchanged PGN, fresh game reset and fitting touch control
+  variation expansion (320×812, 2x, dark): keyboard/pointer expand and collapse, independent branches, retained focus/current move/note, unchanged PGN, fresh game reset and fitting touch control
+Focused browser UI checks passed.

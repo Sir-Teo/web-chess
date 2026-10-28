@@ -30,7 +30,11 @@ export function parseMoveEntry(fen: string, input: string): Move | null {
   if (!token || token.length > 16 || /\s/.test(token)) return null
   try {
     const chess = new Chess(fen)
-    if (/^[a-h][1-8]-?[a-h][1-8]=?[qrbn]?$/i.test(token)) {
+    // B1d2 is SAN for the bishop on rank 1, not a move from b1. A
+    // case-insensitive coordinate match could silently move a knight there.
+    // Lowercase b1d2, all-uppercase B1D2 and explicit B1-d2 remain coordinates.
+    const bishopRankNotation = /^B[1-8][a-h][1-8]$/.test(token)
+    if (!bishopRankNotation && /^[a-h][1-8]-?[a-h][1-8]=?[qrbn]?$/i.test(token)) {
       const uci = token.toLowerCase().replace(/[-=]/g, '')
       return chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
     }

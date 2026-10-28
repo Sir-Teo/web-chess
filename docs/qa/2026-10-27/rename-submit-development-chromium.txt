@@ -1,0 +1,8 @@
+{"browser":"chromium","port":"4324","commit":"5c644128092423a6436c8f709ae3a26e699a4ebd","build":"Vite development source","dirty":true,"checks":["checkSavedReviewRenaming","checkLibraryEditing"]}
+checkSavedReviewRenaming
+  review naming (1280px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+  review naming (375px): selected draft/cancel, 200% text, full-capacity rename, exact report/backup preservation, byte-limit rejection/retry, and concurrent deletion recovery
+checkLibraryEditing
+  library (1280px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists
+  library (375px): Save game command opens the focused naming form after a real move; rejected save preserves its name and retries after freeing capacity; inline rename selects, cancels, commits and persists
+Development focused checks passed.

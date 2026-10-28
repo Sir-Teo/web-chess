@@ -1,3 +1,5 @@
+import type { Move } from 'chess.js'
+
 /**
  * Who is up material, and by how much.
  *
@@ -6,8 +8,9 @@
  * material count tells them *why* in the only currency they already understand,
  * and it is the first thing anyone checks after a trade.
  *
- * Read from the position rather than from the moves, so it is right for a game
- * pasted in as a FEN, for a variation, and for any position navigated to.
+ * Material value comes from the position. Captures follow the selected line,
+ * so a position study starts without invented captures and promotions retain
+ * the identity of the pieces actually taken.
  */
 
 /** Centipawns would be false precision here: this is the count players do in their heads. */
@@ -15,6 +18,8 @@ export const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q:
 
 /** Heaviest first, which is the order every captured-piece strip uses. */
 const DISPLAY_ORDER = ['q', 'r', 'b', 'n', 'p']
+
+export type MaterialMove = Readonly<Pick<Move, 'color' | 'captured'>>
 
 export type MaterialBalance = {
   /** Positive when White is ahead, negative when Black is, zero when level. */
@@ -50,16 +55,24 @@ function valueOf(counts: Record<string, number>, upper: boolean): number {
  * `rootFen` is the position the game started from, not the standard array, so
  * a game set up from a FEN counts what has gone since *it* began.
  *
- * A promotion makes the captured list slightly wrong -- the pawn that promoted
- * looks captured, and the new queen offsets it -- which is what every board
- * that draws this strip does. `delta` is never wrong, because it only ever
- * reads what is on the board now.
+ * When the complete line from that root is available, read its actual captures.
+ * A promoted pawn has not been captured, and a captured promoted queen is a
+ * queen even if none existed in the starting position. Without a move history,
+ * retain the missing-piece estimate. Material value always comes from the FEN.
  */
-export function materialBalance(rootFen: string, fen: string): MaterialBalance {
+export function materialBalance(rootFen: string, fen: string, moves?: readonly MaterialMove[]): MaterialBalance {
   const now = countPieces(fen)
   if (!now) return EMPTY
 
   const delta = valueOf(now, true) - valueOf(now, false)
+  if (moves) {
+    const white: string[] = [], black: string[] = []
+    for (const move of moves) {
+      if (move.captured) (move.color === 'w' ? white : black).push(move.captured)
+    }
+    const ordered = (pieces: string[]) => DISPLAY_ORDER.flatMap(piece => pieces.filter(taken => taken === piece))
+    return { delta, capturedByWhite: ordered(white), capturedByBlack: ordered(black) }
+  }
   const root = countPieces(rootFen)
   if (!root) return { delta, capturedByWhite: [], capturedByBlack: [] }
 

@@ -1,0 +1,11 @@
+{"browser":"firefox","port":"4324","commit":"00df7e919f406dd2dc81cfc96d8c9c921ba6eada","build":"Vite development source","dirty":true,"checks":["checkFinishedGameReplay","checkRevealTimersRespectDialogs","checkRevealRetriesYieldToInteraction"]}
+checkFinishedGameReplay
+  finished replay (1280×900, 1x, Human vs AI): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+  finished replay (375×812, 1x, Human vs Human): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+  finished replay (320×812, 2x, Human vs AI): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+  finished replay (844×390, 2x, Human vs Human): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time
+checkRevealTimersRespectDialogs
+  reveal timers: dialogs retain focused drafts through delayed board/analysis callbacks; closing keeps opener focus
+checkRevealRetriesYieldToInteraction
+  reveal interaction: a held click stays in place and completes its review; focus alone preserves visible Load through pending panel retries at 200% text without waking the engine
+Development focused checks passed.

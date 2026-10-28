@@ -1,0 +1,149 @@
+{
+  "browser": "chromium",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Lichess",
+      "value": "https://example.org/lichess.org/@/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Lichess",
+      "value": "https://notlichess.org/@/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Lichess",
+      "value": "https://example.org/?profile=https://lichess.org/@/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Lichess",
+      "value": "https://www.lichess.org/@/Reader/games?x=1#latest",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Chess.com",
+      "value": "https://example.org/chess.com/member/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Chess.com",
+      "value": "https://notchess.com/member/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Chess.com",
+      "value": "https://example.org/?profile=https://chess.com/member/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "source": "Chess.com",
+      "value": "https://www.chess.com/member/Reader/games?x=1#latest",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Lichess",
+      "value": "https://example.org/lichess.org/@/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Lichess",
+      "value": "https://notlichess.org/@/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Lichess",
+      "value": "https://example.org/?profile=https://lichess.org/@/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Lichess",
+      "value": "https://www.lichess.org/@/Reader/games?x=1#latest",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Chess.com",
+      "value": "https://example.org/chess.com/member/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Chess.com",
+      "value": "https://notchess.com/member/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Chess.com",
+      "value": "https://example.org/?profile=https://chess.com/member/Reader",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "source": "Chess.com",
+      "value": "https://www.chess.com/member/Reader/games?x=1#latest",
+      "normalized": "Reader",
+      "enabled": true,
+      "invalid": null
+    }
+  ]
+}

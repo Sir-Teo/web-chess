@@ -1,0 +1,258 @@
+[
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "username",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "provider",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "count",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "file-cancel",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "https://lichess.org/abcd1234",
+    "action": "username",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "https://lichess.org/abcd1234",
+    "action": "provider",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "https://lichess.org/abcd1234",
+    "action": "count",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 1280,
+    "scale": 1,
+    "value": "https://lichess.org/abcd1234",
+    "action": "file-cancel",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "username",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "provider",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "count",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+    "action": "file-cancel",
+    "before": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a FEN \u2014 one position, not a game. Load it from the FEN tab above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "https://lichess.org/abcd1234",
+    "action": "username",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "https://lichess.org/abcd1234",
+    "action": "provider",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "https://lichess.org/abcd1234",
+    "action": "count",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  },
+  {
+    "width": 375,
+    "scale": 2,
+    "value": "https://lichess.org/abcd1234",
+    "action": "file-cancel",
+    "before": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    },
+    "after": {
+      "invalid": "true",
+      "description": "That is a link to a game, not the game. Open it and copy the moves, or fetch your own games by username above.",
+      "disabled": true
+    }
+  }
+]
