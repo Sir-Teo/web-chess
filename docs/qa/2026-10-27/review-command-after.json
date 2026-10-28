@@ -1,0 +1,50 @@
+[
+  {
+    "tab": "analyze",
+    "collapsed": false,
+    "activeTab": "Review",
+    "panelInert": false,
+    "panelWidth": 320,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ],
+    "stopLabel": "Stop review (0%)"
+  },
+  {
+    "tab": "analyze",
+    "collapsed": true,
+    "activeTab": "Review",
+    "panelInert": false,
+    "panelWidth": 320,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ],
+    "stopLabel": "Stop review (0%)"
+  },
+  {
+    "tab": "engine-lab",
+    "collapsed": false,
+    "activeTab": "Review",
+    "panelInert": false,
+    "panelWidth": 320,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ],
+    "stopLabel": "Stop review (0%)"
+  },
+  {
+    "tab": "engine-lab",
+    "collapsed": true,
+    "activeTab": "Review",
+    "panelInert": false,
+    "panelWidth": 320,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ],
+    "stopLabel": "Stop review (0%)"
+  }
+]

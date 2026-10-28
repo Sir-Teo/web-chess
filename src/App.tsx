@@ -6459,7 +6459,10 @@ function App() {
       // reader looking for it should learn what it needs, not wonder whether
       // they misremembered the name.
       disabled: !reviewFromPlay && Boolean(reviewGameDisabledReason),
-      run: reviewFromPlay ? reviewFinishedGame : startBatchReview,
+      run: reviewFromPlay ? reviewFinishedGame : () => {
+        handleAnalysisTabChange('review')
+        startBatchReview()
+      },
     },
     {
       id: 'take-back',

@@ -1,0 +1,46 @@
+[
+  {
+    "tab": "analyze",
+    "collapsed": false,
+    "activeTab": "Analyze",
+    "panelInert": false,
+    "panelWidth": 320,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ]
+  },
+  {
+    "tab": "analyze",
+    "collapsed": true,
+    "activeTab": "Analyze",
+    "panelInert": true,
+    "panelWidth": 0,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ]
+  },
+  {
+    "tab": "engine-lab",
+    "collapsed": false,
+    "activeTab": "Engine Lab",
+    "panelInert": false,
+    "panelWidth": 320,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ]
+  },
+  {
+    "tab": "engine-lab",
+    "collapsed": true,
+    "activeTab": "Engine Lab",
+    "panelInert": true,
+    "panelWidth": 0,
+    "status": "analyzing",
+    "searches": [
+      "go depth 16"
+    ]
+  }
+]

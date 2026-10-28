@@ -6032,7 +6032,18 @@ async function checkAPaletteTabCommandGoesThere(browser) {
     await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
     assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert), 'reviewing from Play left the result in a collapsed panel')
     assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'reviewing from a collapsed panel changed the selected position')
-    console.log(`  palette tab reveal: ${revealed} collapsed-panel destinations reopen from Play/Analysis at desktop and 901px/200% text; saved width, board and command draft survive; Review game from Play opens and completes`)
+    for (const tab of ['Analyze', 'Engine Lab']) {
+      await page.getByRole('button', { name: tab, exact: true }).click()
+      await collapse()
+      await choose('review-game')
+      const reviewTab = page.getByRole('button', { name: 'Review', exact: true })
+      await reviewTab.waitFor()
+      assert((await reviewTab.getAttribute('class')).includes('active'), `Review game from ${tab} kept its report in another tab`)
+      await page.getByTestId('review-run-summary').filter({ hasText: 'Completed review' }).waitFor()
+      assert(await page.locator('.panel.right > .panel-inner').evaluate(el => !el.inert), `Review game from ${tab} left the report inaccessible`)
+      assert(await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel) === boardBefore, 'the review command moved the board')
+    }
+    console.log(`  palette tab reveal: ${revealed} collapsed-panel destinations reopen from Play/Analysis at desktop and 901px/200% text; saved width, board and command draft survive; Review game opens and completes from Play, Analyze and Engine Lab`)
   } finally {
     await context.close()
   }
