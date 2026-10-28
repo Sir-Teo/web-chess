@@ -1,0 +1,7 @@
+{
+  "label": "Move for Black",
+  "placeholder": "e4, Nf3 or e2e4",
+  "emptyTitle": "Type a move first, such as e4 or Nf3.",
+  "help": "Type one move and press Enter. Castle with O-O; promote with a8=Q or a7a8n.",
+  "error": "That move is not legal here. Use e4, Nf3 or e2e4; include the piece for promotion, such as a8=N."
+}
