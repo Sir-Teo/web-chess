@@ -138,6 +138,7 @@ given, and the app answering the reader who touches it.
 - **Type a move**: Open "Enter a move by name" in Play or Analysis for `Nf3`,
   `e2e4` or `O-O`; lowercase `nf3`, `0-0` and `e8q` work too. The field keeps
   focus while the opponent moves and explains loading, waiting and Step mode.
+  **Play move** returns focus to the field for the next move or a correction.
   Find it in **Commands** (`Ctrl/Cmd+K`) to open the panel and focus the field;
   reopening an existing field keeps its draft and selection. It is omitted
   while watching two engines. A held Enter submits once, so a wrong drill move

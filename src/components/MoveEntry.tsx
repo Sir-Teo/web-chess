@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { Move } from 'chess.js'
 import { moveEntryExplanation, parseMoveEntry } from '../engine/moveEntry'
 import { isCompositionKey } from './shortcutKeys'
@@ -11,6 +11,7 @@ export function MoveEntry({ fen, onMove, disabled = false, disabledReason = 'The
   disabledReason?: string
 }) {
   const id = useId()
+  const input = useRef<HTMLInputElement>(null)
   // Keep the input mounted and focused between moves; a draft belongs only to
   // the position it was typed for, so navigation cannot submit a stale move.
   const [draft, setDraft] = useState({ fen, text: '', error: '' })
@@ -25,6 +26,9 @@ export function MoveEntry({ fen, onMove, disabled = false, disabledReason = 'The
       }} onSubmit={event => {
         event.preventDefault()
         if (disabled || !text.trim()) return
+        // The submit button can be disabled by a successful move. Keep the
+        // next move or correction in this field rather than handing focus away.
+        input.current?.focus()
         const move = parseMoveEntry(fen, text)
         if (!move) {
           setDraft({ fen, text, error: moveEntryExplanation(fen, text)
@@ -36,7 +40,7 @@ export function MoveEntry({ fen, onMove, disabled = false, disabledReason = 'The
       }}>
         <label htmlFor={id}>Move for {fen.split(' ')[1] === 'b' ? 'Black' : 'White'}</label>
         <div className="move-entry-row">
-          <input id={id} value={text} placeholder="e4, Nf3 or e2e4" maxLength={16}
+          <input id={id} ref={input} value={text} placeholder="e4, Nf3 or e2e4" maxLength={16}
             autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} enterKeyHint="go"
             // Read-only rather than disabled: a disabled field drops focus, and in
             // a game it is disabled for every one of the opponent's moves.

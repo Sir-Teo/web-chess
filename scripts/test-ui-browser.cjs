@@ -742,7 +742,7 @@ async function checkBishopRankEntry(browser) {
 
 async function checkTypedMoveEntry(browser) {
   for (const [width, theme] of [[1280, 'Dark'], [375, 'Dark'], [1280, 'Light'], [375, 'Light']]) {
-    const context = await browser.newContext({ viewport: { width, height: 812 } })
+    const context = await browser.newContext({ viewport: { width, height: 812 }, hasTouch: width < 900 })
     const page = await context.newPage()
     try {
       await page.addInitScript(fakeEngineScript())
@@ -760,8 +760,9 @@ async function checkTypedMoveEntry(browser) {
       await guide.locator('summary').click()
       await page.locator('.move-entry summary').click()
       const input = page.locator('.move-entry input')
+      const submit = page.locator('.move-entry').getByRole('button', { name: 'Play move', exact: true })
       await input.fill('e4')
-      await input.press('Enter')
+      if (width < 900) await submit.tap(); else await submit.click()
       await waitForBoardPiece(page, 'e4', 'White pawn')
       assert(await input.evaluate(el => document.activeElement === el), 'typing a move lost input focus')
       assert(await input.inputValue() === '', 'the previous move remained in the input')
@@ -769,17 +770,19 @@ async function checkTypedMoveEntry(browser) {
       await input.press('Enter')
       await waitForBoardPiece(page, 'e5', 'Black pawn')
       await input.fill('e5')
-      await input.press('Enter')
+      if (width < 900) await submit.tap(); else await submit.click()
       assert(await page.locator('.move-entry [role="alert"]').count() === 1, 'illegal input was not explained')
+      assert(await input.evaluate(el => el === document.activeElement) && await input.inputValue() === 'e5', 'invalid button submission lost its focused correction draft')
       assert((await page.locator('#chessboard-square-e4').evaluate(readBoardSquareLabel)).includes('White pawn'), 'illegal input changed the board')
       await input.fill('Nf3')
       await input.press('Enter')
       await waitForBoardPiece(page, 'f3', 'White knight')
       await input.fill('Nc6')
-      await input.press('Enter')
+      await submit.focus(); await submit.press('Enter')
       await page.locator('#chessboard-square-c6 [data-piece="bN"]').waitFor()
+      assert(await input.evaluate(el => el === document.activeElement), 'button Enter did not return to the move field')
       await input.fill('bc4')
-      await input.press('Enter')
+      await submit.focus(); await submit.press('Space')
       await page.locator('#chessboard-square-c4 [data-piece="wB"]').waitFor()
       assert(await input.evaluate(el => document.activeElement === el), 'lowercase bishop entry lost input focus')
       await input.fill('b5')
@@ -799,7 +802,7 @@ async function checkTypedMoveEntry(browser) {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded move input overflows')
       assert(await input.evaluate(el => el.getBoundingClientRect().height >= 44), 'move input is shorter than its touch target')
       await assertContrast(page, `${theme} / expanded move entry / ${width}px`, 15)
-      console.log(`  typed moves (${width}px, ${theme}): SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction, invalid input, focus and navigation OK`)
+      console.log(`  typed moves (${width}px, ${theme}): click/tap/button Enter/Space return to input; rejected draft stays focused; SAN, UCI, lowercase bishop moves and White/Black captures, b-file pawn distinction and navigation OK`)
     } finally { await context.close() }
   }
 }
@@ -21442,7 +21445,7 @@ async function checkDrillHiddenHints(browser) {
       await page.keyboard.down('Enter')
       await page.keyboard.up('Enter')
       assert(await announcement() === firstAttempt && firstAttempt.includes('Attempt 1.'), 'held Enter counted extra drill attempts or revealed the answer')
-      assert(await entry.inputValue() === 'd4' && await submitFrom.evaluate(el => el === document.activeElement), 'a refused typed move lost its draft or focus')
+      assert(await entry.inputValue() === 'd4' && await entry.evaluate(el => el === document.activeElement), 'a refused typed move lost its focused correction draft')
       console.log(`  typed drill entry (${width}×${height}, ${scale}x): ${width === 1280 ? 'input' : 'Play move'} Enter counts once while held; composing/229 Enter stays with text input; rejected draft and focus remain`)
       await hidden()
       assert((await announcement()).includes('Not the line. Try again.'), 'wrong-answer feedback is outside the live drill status')
