@@ -2,7 +2,8 @@
 
 A browser chess app for playing, importing, and reviewing games with Stockfish-powered analysis.
 
-The [October 25 audit](docs/audit-2026-10-25.md) records the latest library,
+The [October 27 audit](docs/audit-2026-10-27.md) records the continuing study-navigation
+improvements and browser verification. The [October 25 audit](docs/audit-2026-10-25.md) records the library,
 import, position-setup, keyboard and dependency fixes with validation evidence.
 The [September 12 audit](docs/audit-2026-09-12.md) includes real Stockfish
 measurements, browser QA and the prioritized roadmap.
@@ -143,6 +144,10 @@ given, and the app answering the reader who touches it.
   the current board orientation; Home/End move along the rank, and Escape
   cancels the selection. Focus follows the moved piece and respects your next
   selection.
+- **Read longer variations**: Choose **+N more** in the move list to expand a
+  variation, then **Show fewer** to restore its preview. Each branch expands
+  independently; the selected move stays visible when collapsing. Both controls
+  work with the keyboard and on touch screens.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long

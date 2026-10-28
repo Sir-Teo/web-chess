@@ -31,13 +31,15 @@ export type VariationPreview = {
  * in a sub-line is not on this chain at all, but the move the sub-line hangs
  * off is, and it has to be drawn or the line they are in has no visible root.
  *
- * Whatever is still cut is reported in `hidden` rather than dropped quietly, so
- * the caller can say so.
+ * Whatever is still cut is reported in `hidden` so the caller can offer to
+ * expand it. An expanded preview includes the whole first-child chain;
+ * collapsing still keeps the current path visible.
  */
 export function buildVariationPreview(
   startId: string,
   nodes: Map<string, GameNode>,
   current?: string | ReadonlySet<string>,
+  expanded = false,
 ): VariationPreview {
   const chain: GameNode[] = []
   let cursor = nodes.get(startId)
@@ -67,7 +69,7 @@ export function buildVariationPreview(
   const leavesChainHere = Boolean(
     fork && next && onPath && fork.children.some(id => id !== next.id && onPath.has(id)),
   )
-  const shown = Math.max(VARIATION_PREVIEW_LENGTH, reach + 1 + (leavesChainHere ? 1 : 0))
+  const shown = expanded ? chain.length : Math.max(VARIATION_PREVIEW_LENGTH, reach + 1 + (leavesChainHere ? 1 : 0))
 
   return {
     nodes: chain.slice(0, shown),

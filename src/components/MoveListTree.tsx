@@ -3,7 +3,7 @@ import { DEFAULT_POSITION } from 'chess.js'
 import { useDisarmAfter } from '../hooks/useDisarmAfter'
 import type { GameTreeHandle, GameNode } from '../hooks/useGameTree'
 import { IconPawn, IconBranch } from './icons'
-import { buildVariationPreview } from './variationPreview'
+import { buildVariationPreview, VARIATION_PREVIEW_LENGTH } from './variationPreview'
 import { isOnMainLine } from '../engine/moveTree'
 import { moveNumberPrefix } from '../engine/moveLabels'
 import { MOVE_GLYPHS, glyphName, moveGlyphFor, positionGlyphsFor } from '../engine/nags'
@@ -54,6 +54,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
      * alone. Same split `EngineOptionControl` makes for a spin input.
      */
     const [commentDraft, setCommentDraft] = useState('')
+    const [variationExpansion, setVariationExpansion] = useState(() => ({ rootId: tree.root.id, ids: new Set<string>() }))
     const scrollRef = useRef<HTMLDivElement>(null)
     const commentId = useId()
 
@@ -111,7 +112,8 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
      * number "(2... Nc6 3. Bc4) Nf6" does not say whose move Nf6 is.
      */
     const renderVariation = (startId: string, depth: number): React.ReactNode[] => {
-        const { nodes: chainNodes, hidden } = buildVariationPreview(startId, nodesSnapshot, currentPathIds)
+        const expanded = variationExpansion.rootId === tree.root.id && variationExpansion.ids.has(startId)
+        const { nodes: chainNodes, hidden } = buildVariationPreview(startId, nodesSnapshot, currentPathIds, expanded)
         const items: React.ReactNode[] = []
         let needsNumber = true
 
@@ -157,16 +159,27 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
             }
         })
 
-        if (hidden > 0) {
+        if (chainNodes.length + hidden > VARIATION_PREVIEW_LENGTH) {
+            const first = chainNodes[0]!
+            const startingMove = `${moveNumberPrefix(first.fen) ?? ''} ${first.san}`.trim()
+            const toggleLabel = expanded ? 'Show fewer' : hidden > 0 ? `+${hidden} more` : 'Full line'
             items.push(
-                <span
+                <button
                     key={`${startId}-more`}
-                    className="mtree-var-more"
-                    title={`${hidden} more move${hidden === 1 ? '' : 's'} in this variation`}
-                    aria-label={`${hidden} more move${hidden === 1 ? '' : 's'} in this variation`}
+                    type="button"
+                    className="mtree-var-toggle"
+                    aria-expanded={expanded}
+                    aria-label={`${toggleLabel}: ${expanded ? 'collapse' : 'expand'} variation starting with ${startingMove}`}
+                    title={expanded ? 'Show a shorter preview, keeping the current move visible' : 'Show every move in this variation'}
+                    onClick={() => setVariationExpansion(previous => {
+                        const ids = new Set(previous.rootId === tree.root.id ? previous.ids : [])
+                        if (ids.has(startId)) ids.delete(startId)
+                        else ids.add(startId)
+                        return { rootId: tree.root.id, ids }
+                    })}
                 >
-                    +{hidden}
-                </span>,
+                    {toggleLabel}
+                </button>,
             )
         }
 

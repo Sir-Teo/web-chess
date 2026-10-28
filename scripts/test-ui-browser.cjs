@@ -8954,6 +8954,72 @@ async function checkAutoSaveCursor(browser) {
   }
 }
 
+async function checkVariationExpansion(browser) {
+  const pgn = '1. e4 e5 2. Nf3 (2. Nc3 Nf6 3. f4 d5 4. fxe5 Nxe4 5. Nf3 Bc5 6. d4 {Deep variation note}) (2. Bc4 Nf6 3. d3 Bc5 4. Nc3 d6 5. Nf3 Nc6 6. O-O) Nc6 *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme }))
+      }, theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const importGame = async text => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        await page.locator('.pgn-dialog textarea').fill(text)
+        await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+        await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      }
+      const copyPgn = async () => {
+        await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+        const dialog = page.locator('.pgn-dialog')
+        await dialog.getByRole('button', { name: 'Export', exact: true }).click()
+        await dialog.getByRole('checkbox', { name: 'Engine evals', exact: true }).uncheck()
+        const text = await dialog.getByRole('textbox', { name: 'Annotated Output', exact: true }).inputValue()
+        await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+        await dialog.waitFor({ state: 'detached' })
+        return text
+      }
+      await importGame(pgn)
+      const original = await copyPgn()
+      const toggle = page.getByRole('button', { name: /variation starting with 2\. Nc3$/ })
+      const other = page.getByRole('button', { name: /variation starting with 2\. Bc4$/ })
+      const last = page.getByRole('button', { name: /^Go to variation move 6\. d4,/ })
+      assert(await last.count() === 0 && await toggle.innerText() === '+3 more', 'the variation is not initially a counted preview')
+      await toggle.focus()
+      await page.keyboard.press('Enter')
+      await last.waitFor()
+      assert(await toggle.getAttribute('aria-expanded') === 'true' && await toggle.evaluate(e => e === document.activeElement), 'keyboard expansion lost state or focus')
+      assert(await other.getAttribute('aria-expanded') === 'false' && await page.getByRole('button', { name: /^Go to variation move 6\. O-O/ }).count() === 0, 'expanding one variation expanded its sibling')
+      await toggle.press('Space')
+      assert(await last.count() === 0 && await toggle.evaluate(e => e === document.activeElement), 'keyboard collapse did not restore the preview and focus')
+      await toggle.click()
+      await last.click()
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Deep variation note', 'the expanded move does not navigate to its own note')
+      await toggle.click()
+      assert(await last.getAttribute('aria-current') === 'step', 'collapsing hid the selected deep move')
+      assert(await toggle.evaluate(e => e === document.activeElement), 'collapse at the selected final move lost focus')
+      await page.getByRole('button', { name: /^Go to move 2\.\.\. Nc6/ }).click()
+      assert(await last.count() === 0, 'the collapsed preview stayed expanded after returning to the main line')
+      assert(await copyPgn() === original, 'reading a variation changed its exported PGN')
+      await toggle.click()
+      await page.screenshot({ path: `/tmp/web-chess-variation-${browser.browserType().name()}-${width}.png`, fullPage: true })
+      if (width <= 900) {
+        const box = await toggle.boundingBox()
+        assert(meetsTouchTarget(box.height) && meetsTouchTarget(box.width), 'the expansion control is too small to tap')
+      }
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'expanded variations overflow the document')
+      await importGame(pgn)
+      assert(await toggle.getAttribute('aria-expanded') === 'false' && await last.count() === 0, 'a replacement game inherited the previous expansion')
+      assert(errors.length === 0, `variation expansion errors: ${errors.join('; ')}`)
+      console.log(`  variation expansion (${width}×${height}, ${scale}x, ${theme}): keyboard/pointer expand and collapse, independent branches, retained focus/current move/note, unchanged PGN, fresh game reset and fitting touch control`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPositionStudyNotes(browser) {
   const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
   const pgn = `[Event "Position notes QA"]\n[SetUp "1"]\n[FEN "${fen}"]\n\n{position introduction} * {closing study note}`
@@ -21629,6 +21695,7 @@ async function main() {
       'pgn-after-variation': checkPostVariationNotes,
       'autosave-cursor': checkAutoSaveCursor,
       'position-notes': checkPositionStudyNotes,
+      'variation-expansion': checkVariationExpansion,
       'autosave-lifecycle': checkAutosavePageLifecycle,
       'autosave-tabs': checkEmptyTabPreservesRecovery,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -22520,6 +22587,7 @@ async function main() {
     await checkDialogResizeFocus(browser)
     await checkAutoSaveCursor(browser)
     await checkPositionStudyNotes(browser)
+    await checkVariationExpansion(browser)
     await checkAutosavePageLifecycle(browser)
     await checkEmptyTabPreservesRecovery(browser)
     await checkPostVariationNotes(browser)

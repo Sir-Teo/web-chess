@@ -6128,6 +6128,34 @@ button.mtree-chip {
   cursor: help;
 }
 
+.panel button.mtree-var-toggle {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 1.75rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.panel button.mtree-var-toggle:hover {
+  border-color: var(--border-accent);
+  color: var(--accent-ink);
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  .panel button.mtree-var-toggle {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 .mtree-chip-markers {
   display: inline-flex;
   align-items: center;

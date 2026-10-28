@@ -196,7 +196,8 @@ describe('MoveListTree variations', () => {
 
         // Bc5 follows 5. Nf3 directly and takes no number; the sub-line's
         // first move does, and the one move past it is reported, not dropped.
-        expect(text).toContain('5. Nf3 Bc5 ( 5... Nc6 6. d4 ) +1')
+        expect(text).toContain('5. Nf3 Bc5 ( 5... Nc6 6. d4 ) +1 more')
         expect(html).toContain('aria-current="step"')
+        expect(html).toContain('aria-expanded="false" aria-label="+1 more: expand variation starting with 2. Nc3"')
     })
 })

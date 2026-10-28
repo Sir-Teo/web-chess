@@ -41,6 +41,17 @@ describe('the variation slice the move list draws', () => {
     expect(preview.hidden).toBe(20 - VARIATION_PREVIEW_LENGTH)
   })
 
+  it('expands the whole line and collapses through the selected move', () => {
+    const { nodes, ids } = chain(20)
+    const expanded = buildVariationPreview('v1', nodes, 'v12', true)
+    expect(expanded.nodes.map(node => node.id)).toEqual(ids)
+    expect(expanded.hidden).toBe(0)
+
+    const collapsed = buildVariationPreview('v1', nodes, 'v12', false)
+    expect(collapsed.nodes.at(-1)?.id).toBe('v12')
+    expect(collapsed.hidden).toBe(8)
+  })
+
   /**
    * The defect this function exists for. A plain cap could hide the node the
    * reader is standing on, and then the move list highlighted nothing, marked
