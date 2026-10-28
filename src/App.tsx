@@ -549,7 +549,7 @@ function App() {
   const analysisPanelRef = useRef<HTMLElement>(null)
   const analysisHeaderRef = useRef<HTMLElement>(null)
   const analysisStatusRef = useRef<HTMLDivElement>(null)
-  const revealOpeningIntelRef = useRef(false)
+  const revealOpeningIntelRef = useRef<{ source: Element | null } | null>(null)
   const [viewport, setViewport] = useState(readViewport)
   /**
    * The OS-level request for less motion. The app's own scrolling already
@@ -2778,47 +2778,59 @@ function App() {
   }, [openingTopMoves])
 
   const openOpeningIntel = useCallback(() => {
-    revealOpeningIntelRef.current = true
+    revealOpeningIntelRef.current = { source: document.activeElement }
     setAnalysisExperience('pro')
     setAnalysisTab('analyze')
   }, [])
 
   useEffect(() => {
-    if (!revealOpeningIntelRef.current) return
+    const request = revealOpeningIntelRef.current
+    if (!request) return
+    if (backgroundUiHidden || workspaceMode !== 'analysis') {
+      revealOpeningIntelRef.current = null
+      return
+    }
     if (analysisTab !== 'analyze' || analysisExperience !== 'pro') return
-    revealOpeningIntelRef.current = false
+    revealOpeningIntelRef.current = null
+    if (document.activeElement !== document.body && document.activeElement !== request.source) return
+    const token = openingIntelRef.current?.querySelector<HTMLInputElement>('.opening-token-input')
+    if (!token) return
+    token.focus({ preventScroll: true })
 
-    let settleTimer: ReturnType<typeof window.setTimeout> | null = null
-    let finalTimer: ReturnType<typeof window.setTimeout> | null = null
     const revealOpeningIntel = () => {
+      if (document.activeElement !== token) return
       const openingIntel = openingIntelRef.current
       if (!openingIntel) return
       const panel = openingIntel.closest('.panel-inner') as HTMLElement | null
       const scrollContainer = isMobileLayout ? mainContainerRef.current : panel
       if (!scrollContainer) {
-        openingIntel.scrollIntoView({ block: 'start' })
-        return
+        openingIntel.scrollIntoView({ block: 'start', behavior: 'instant' })
+      } else {
+        const containerRect = scrollContainer.getBoundingClientRect()
+        const targetRect = openingIntel.getBoundingClientRect()
+        const style = getComputedStyle(scrollContainer)
+        const pinnedInset = Number.parseFloat(style.scrollPaddingTop) || 0
+        const top = scrollContainer.scrollTop + targetRect.top - containerRect.top - pinnedInset - 12
+        scrollContainer.scrollTo({ top: Math.max(0, top), behavior: 'instant' })
+        const visibleTop = Math.max(0, containerRect.top + pinnedInset)
+        const visibleBottom = Math.min(innerHeight, containerRect.bottom)
+        if (visibleBottom > visibleTop && scrollContainer.scrollHeight > scrollContainer.clientHeight
+          && ['auto', 'scroll', 'hidden'].includes(style.overflowY)) {
+          const field = token.getBoundingClientRect()
+          const delta = field.bottom > visibleBottom ? field.bottom - visibleBottom
+            : field.top < visibleTop ? field.top - visibleTop : 0
+          scrollContainer.scrollBy({ top: delta, behavior: 'instant' })
+          return
+        }
       }
-
-      const containerRect = scrollContainer.getBoundingClientRect()
-      const targetRect = openingIntel.getBoundingClientRect()
-      const pinnedInset = Number.parseFloat(getComputedStyle(scrollContainer).scrollPaddingTop) || 0
-      const top = scrollContainer.scrollTop + targetRect.top - containerRect.top - pinnedInset - 12
-      scrollContainer.scrollTo({
-        top: Math.max(0, top),
-        behavior: 'auto',
-      })
+      // A short viewport may fit the heading but cover the field. Native
+      // scrolling also reaches the outer page when workspace chrome scrolls.
+      token.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
     }
 
     revealOpeningIntel()
-    settleTimer = window.setTimeout(revealOpeningIntel, 120)
-    finalTimer = window.setTimeout(revealOpeningIntel, 320)
-
-    return () => {
-      if (settleTimer) window.clearTimeout(settleTimer)
-      if (finalTimer) window.clearTimeout(finalTimer)
-    }
-  }, [analysisExperience, analysisTab, isMobileLayout])
+    return scheduleRevealRetries(revealOpeningIntel, [120, 320])
+  }, [analysisExperience, analysisTab, backgroundUiHidden, isMobileLayout, workspaceMode])
 
   const resetSavedWorkspace = useCallback(() => {
     try {

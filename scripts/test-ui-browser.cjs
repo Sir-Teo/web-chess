@@ -13478,6 +13478,95 @@ async function checkOpeningLayout(browser) {
   }
 }
 
+async function checkOpeningIntelFocus(browser) {
+  for (const [width, height, scale] of [[1280, 812, 1], [375, 812, 1], [320, 812, 2], [844, 390, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage()
+    try {
+      await page.clock.install()
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(() => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({
+          workspaceMode: 'analysis', analysisExperience: 'pro', analysisTab: 'review', autoAnalyze: false,
+          engineProfile: 'lite-single-local',
+        }))
+        const before = window.setTimeout
+        window.__holdOpeningRevealTimers = false
+        window.setTimeout = (callback, delay, ...args) => before(callback,
+          window.__holdOpeningRevealTimers && delay === 320 ? 30000 : delay, ...args)
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.clock.runFor(50)
+      await page.locator('#chessboard-square-e2').click()
+      await page.locator('#chessboard-square-e4').click()
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      // Settle the cloud card's own 320ms request before holding navigation retries.
+      await page.clock.runFor(1500)
+      const intel = page.getByRole('button', { name: 'Open Opening Intel', exact: true })
+      const token = page.getByLabel('Lichess API token', { exact: true })
+      const open = async () => {
+        await intel.focus()
+        await page.evaluate(() => { window.__holdOpeningRevealTimers = true })
+        await intel.press('Enter')
+        await token.waitFor()
+        // Allow the first layout correction; retain the final retry to test
+        // whether newer input and modal focus cancel it.
+        await page.clock.runFor(200)
+        const field = await token.evaluate(el => {
+          const r = el.getBoundingClientRect(), x = r.x + r.width / 2
+          return { focused: el === document.activeElement, top: r.top, bottom: r.bottom,
+            hit: [r.top + 2, r.bottom - 2].every(y => el.contains(document.elementFromPoint(x, y))) }
+        })
+        assert(field.focused && field.top >= 0 && field.bottom <= height && field.hit,
+          `Opening Intel did not focus a fully visible token field: ${JSON.stringify({ width, height, scale, field })}`)
+      }
+      const scrolls = () => page.evaluate(() => [document.querySelector('.main-container'),
+        document.querySelector('.right .panel-inner'), document.scrollingElement].map(el => el.scrollTop))
+      await open()
+      await page.clock.runFor(2500)
+      await page.evaluate(() => document.fonts.ready)
+      await token.press('Space')
+      await page.clock.runFor(100)
+      await page.evaluate(() => {
+        for (const el of [document.querySelector('.main-container'), document.querySelector('.right .panel-inner'), document.scrollingElement]) el.scrollTo({ top: el.scrollTop + 20, behavior: 'instant' })
+      })
+      await page.clock.runFor(100)
+      const reading = await scrolls()
+      await page.clock.fastForward(31000)
+      const afterTyping = await scrolls()
+      assert(afterTyping.every((value, index) => Math.abs(value - reading[index]) < 1), `an old Opening Intel retry moved the reader after new input: ${JSON.stringify({ width, height, scale, reading, afterTyping })}`)
+      assert(await token.inputValue() === ' ' && await token.evaluate(el => el === document.activeElement), 'opening navigation lost the token draft or focus')
+
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await open()
+      const pgnOpener = page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true })
+      await pgnOpener.click()
+      const draft = page.locator('.pgn-dialog textarea').first()
+      await draft.fill('1. d4 d5 *')
+      await page.clock.runFor(50)
+      const covered = await scrolls()
+      await page.clock.fastForward(31000)
+      assert(await draft.evaluate(el => el === document.activeElement) && await draft.inputValue() === '1. d4 d5 *', 'the old opening request stole a newer dialog draft')
+      assert((await scrolls()).every((value, index) => Math.abs(value - covered[index]) < 1), 'an Opening Intel retry scrolled behind the newer dialog')
+      await draft.press('Escape')
+      await page.clock.fastForward(31000)
+      assert(await pgnOpener.evaluate(el => el === document.activeElement), 'closing the newer dialog replayed the opening focus request')
+
+      await page.getByRole('button', { name: 'Review', exact: true }).click()
+      await intel.focus()
+      await page.evaluate(() => {
+        document.querySelector('.review-book-token-btn').click()
+        document.getElementById('chessboard-stage').focus()
+      })
+      await token.waitFor()
+      await page.clock.fastForward(31000)
+      assert(await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'the opening handoff overrode a newer board focus')
+      assert(await page.locator('#chessboard-square-e4 [data-piece="wP"]').count() === 1, 'opening navigation changed the board')
+      console.log(`  opening focus (${width}×${height}, ${scale}x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkReadingSpace(browser) {
   for (const width of [1280, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
@@ -13581,10 +13670,18 @@ async function checkReadingSpace(browser) {
           const header = document.querySelector('.analysis-header')
           const top = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().bottom : main.top
           const heading = el.querySelector('h3').getBoundingClientRect()
+          const token = el.querySelector('.opening-token-input'), input = token.getBoundingClientRect()
           return { top: heading.top, bottom: heading.bottom, visibleTop: top, visibleBottom: main.bottom,
-            headerBottom: header.getBoundingClientRect().bottom, mainTop: main.top }
+            headerBottom: header.getBoundingClientRect().bottom, mainTop: main.top,
+            introFits: input.bottom - heading.top <= main.bottom - top + 1,
+            fieldVisible: input.top >= top - 1 && input.bottom <= main.bottom + 1
+              && [input.top + 2, input.bottom - 2].every(y => token.contains(document.elementFromPoint(input.x + input.width / 2, y))),
+            fieldFocused: document.activeElement === token }
         })
-        assert(revealed.top >= revealed.visibleTop - 1 && revealed.bottom <= revealed.visibleBottom + 1,
+        assert(revealed.fieldVisible && revealed.fieldFocused, `Opening Intel left its token field inaccessible: ${JSON.stringify(revealed)}`)
+        // Keep the heading too when the introduction and field fit together.
+        // Enlarged narrow layouts must prioritize the field the action requests.
+        assert(!revealed.introFits || (revealed.top >= revealed.visibleTop - 1 && revealed.bottom <= revealed.visibleBottom + 1),
           `Opening Intel shortcut did not reveal its heading: ${JSON.stringify(revealed)}`)
         if (width > 900 && scale === 2) assert(revealed.headerBottom <= revealed.mainTop, 'oversized header still occupies the reading viewport after scrolling')
         await page.screenshot({ path: `/tmp/web-chess-reading-space-${width}-${scale}.png` })
@@ -22255,6 +22352,7 @@ async function main() {
       'portrait-dialogs': checkPortraitDialogReading,
       'compact-footer': checkCompactFooter,
       'reading-space': checkReadingSpace,
+      'opening-focus': checkOpeningIntelFocus,
       'opening-layout': checkOpeningLayout,
       'opening-numbers': checkOpeningNumbersBelongToTheirPosition,
       'tablebase': checkTheTablebaseAnswersForThisPosition,
@@ -23195,6 +23293,7 @@ async function main() {
     await checkShortDesktopDialogs(browser)
     await checkPortraitDialogReading(browser)
     await checkCompactFooter(browser)
+    await checkOpeningIntelFocus(browser)
     await checkReadingSpace(browser)
     await checkOpeningLayout(browser)
     await checkOpeningNumbersBelongToTheirPosition(browser)
