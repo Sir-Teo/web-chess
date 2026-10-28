@@ -11231,7 +11231,7 @@ async function checkOpeningRequestRetry(browser) {
           const url = new URL(typeof input === 'string' ? input : input.url || String(input), location.href)
           if (url.hostname !== 'explorer.lichess.org') return before(input, init)
           const n = window.__openingRetryRequests.push(url.href)
-          if (n === 1) return Promise.resolve(new Response('Temporary failure', { status: 503 }))
+          if (n === 1) return Promise.resolve(new Response('Rejected fixture token', { status: 401 }))
           return new Promise(resolve => window.__openingRetryReplies.set(n, status => resolve(new Response(JSON.stringify({
             white: 100 + n, draws: 10, black: 20, opening: { eco: 'A00', name: `Retry fixture ${n}` },
             moves: [{ uci: 'e2e4', san: 'e4', white: 100 + n, draws: 10, black: 20, averageRating: 2400 }],
@@ -11248,15 +11248,16 @@ async function checkOpeningRequestRetry(browser) {
       await token.fill('fixture-only')
       await retry.waitFor()
       assert(await retry.evaluate(el => el.getBoundingClientRect().height >= 43.75), 'opening retry has a small touch target')
-      await retry.evaluate(el => { el.click(); el.click() })
+      await token.fill('corrected-fixture')
       await page.waitForFunction(() => window.__openingRetryReplies.has(2))
-      assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'opening retry kept the old error/action')
-      assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'opening retry lost keyboard focus')
-      assert(await page.evaluate(() => window.__openingRetryRequests.length) === 2, 'duplicate opening retry requests')
+      assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0
+        && (await card.getByRole('status').textContent()).includes('Loading opening database'), 'the new token request kept the old rejection instead of loading feedback')
+      assert(await token.evaluate(el => el === document.activeElement), 'correcting the token lost keyboard focus')
+      assert(await page.evaluate(() => window.__openingRetryRequests.length) === 2, 'duplicate opening token requests')
       await page.evaluate(() => window.__openingRetryReplies.get(2)(503))
       await retry.waitFor()
-      assert(await card.getByRole('status').evaluate(el => el === document.activeElement), 'repeated opening failure lost focus')
-      await retry.click()
+      assert(await token.evaluate(el => el === document.activeElement), 'the corrected-token response stole focus')
+      await retry.evaluate(el => { el.click(); el.click() })
       await page.waitForFunction(() => window.__openingRetryReplies.has(3))
       await card.getByRole('button', { name: 'Lichess', exact: true }).click()
       await page.evaluate(() => window.__openingRetryReplies.get(3)(200))
@@ -11270,7 +11271,7 @@ async function checkOpeningRequestRetry(browser) {
       await page.evaluate(() => window.__openingRetryReplies.get(5)(200))
       await card.getByRole('status').filter({ hasText: 'Retry fixture 5' }).waitFor()
       assert(await retry.count() === 0 && await card.locator('.error-copy').count() === 0, 'opening success kept its failure UI')
-      assert(await token.inputValue() === 'fixture-only', 'opening retry changed the token')
+      assert(await token.inputValue() === 'corrected-fixture', 'opening retry changed the corrected token')
       assert(await card.getByRole('button', { name: 'Lichess', exact: true, pressed: true }).count() === 1
         && await page.getByRole('combobox', { name: 'Opening rating bucket' }).inputValue() === rating, 'opening retry changed filters')
       assert(await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'opening retry moved a piece')
@@ -11280,7 +11281,7 @@ async function checkOpeningRequestRetry(browser) {
       }), 'opening success left its focused status covered or off screen')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'opening retry overflows enlarged text')
       if (width === 375) await page.screenshot({ path: path.join(os.tmpdir(), 'web-chess-opening-retry-200.png') })
-      console.log(`  opening retry (${width}px, ${scale}x): token gate, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery`)
+      console.log(`  opening retry (${width}px, ${scale}x): token gate, correction shows loading without losing focus, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery`)
     } finally { await context.close() }
   }
 }

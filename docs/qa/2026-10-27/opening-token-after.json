@@ -1,0 +1,22 @@
+[
+  {
+    "width": 1280,
+    "firstError": "Opening DB: Opening Explorer rejected the Lichess API token.",
+    "pending": "Loading opening database...",
+    "retryButtons": 0,
+    "requests": [
+      "Bearer invalid-fixture",
+      "Bearer corrected-fixture"
+    ]
+  },
+  {
+    "width": 375,
+    "firstError": "Opening DB: Opening Explorer rejected the Lichess API token.",
+    "pending": "Loading opening database...",
+    "retryButtons": 0,
+    "requests": [
+      "Bearer invalid-fixture",
+      "Bearer corrected-fixture"
+    ]
+  }
+]
