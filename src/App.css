@@ -6115,19 +6115,6 @@ button.mtree-chip {
   color: var(--danger);
 }
 
-.mtree-var-more {
-  flex: 0 0 auto;
-  align-self: center;
-  padding: 0.05rem 0.34rem;
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-pill);
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  line-height: 1.5;
-  cursor: help;
-}
-
 .panel button.mtree-var-toggle {
   flex: 0 1 auto;
   min-width: 0;

@@ -9020,6 +9020,61 @@ async function checkVariationExpansion(browser) {
   }
 }
 
+async function checkDeepVariationNavigation(browser) {
+  const pgn = 'a3 (Nf3 a6 (Nf6 a3 (Ng1 a6 (Ng8 a3 (Nf3 a6 (Nf6 a3 (Ng1 a6 (Ng8 b3 {Deepest knight study})))))))) *'
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark'], [844, 390, 2, 'light']]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(theme => localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', autoAnalyze: false, theme })), theme)
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click()
+      await page.locator('.pgn-dialog textarea').fill(pgn)
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.pgn-dialog').waitFor({ state: 'detached' })
+      const openWhite = page.getByRole('button', { name: 'Open deeper line starting with 4. Ng1', exact: true })
+      const openBlack = page.getByRole('button', { name: 'Open deeper line starting with 4... Ng8', exact: true })
+      const white = page.getByRole('button', { name: /^Go to variation move 4\. Ng1/ })
+      const last = page.getByRole('button', { name: /^Go to variation move 5\. b3/ })
+      assert(await last.count() === 0, 'an unselected deeply nested line is rendered in full')
+      if (width <= 900) {
+        const box = await openWhite.boundingBox()
+        assert(meetsTouchTarget(box.height) && meetsTouchTarget(box.width), 'the deeper-line control is too small to tap')
+      }
+      await openWhite.focus()
+      await page.keyboard.press('Enter')
+      await white.waitFor()
+      assert(await white.getAttribute('aria-current') === 'step', 'opening the deep line did not expose its current move')
+      if (width > 900) assert(await white.evaluate(e => e === document.activeElement), 'the replaced deep-line trigger lost keyboard focus')
+      await openBlack.focus()
+      await page.keyboard.press('Space')
+      await page.getByRole('button', { name: 'Go to next move', exact: true }).click()
+      await last.waitFor()
+      assert(await last.getAttribute('aria-current') === 'step' && await page.locator('.mtree-chip[aria-current]').count() === 1, 'the deepest selected move has no unique current marker')
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Deepest knight study', 'the deep-line action opened the wrong note')
+      const main = page.getByRole('button', { name: /^Go to move 1\. a3(?:,|$)/ })
+      await main.click()
+      assert(await last.count() === 0 && await openWhite.count() === 1, 'leaving the deep line did not restore its bounded preview')
+      // Enter the same line through ordinary move/sibling shortcuts. Its
+      // current marker must also survive navigation that bypasses the opener.
+      for (let ply = 0; ply < 8; ply++) {
+        await page.keyboard.press('ArrowDown')
+        await page.keyboard.press('ArrowRight')
+      }
+      assert(await last.getAttribute('aria-current') === 'step', 'keyboard navigation past the nesting cap hid the current move')
+      assert(await page.getByRole('textbox', { name: 'Move note', exact: true }).inputValue() === 'Deepest knight study', 'keyboard navigation selected the wrong deep line')
+      await last.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-deep-variation-${browser.browserType().name()}-${width}.png`, fullPage: true })
+      assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'deep variation controls overflow the document')
+      assert(errors.length === 0, `deep variation errors: ${errors.join('; ')}`)
+      console.log(`  deep variations (${width}×${height}, ${scale}x, ${theme}): bounded unselected previews; named Enter/Space actions and focus handoff; deepest move, unique current marker and note survive ordinary keyboard navigation; leaving restores the preview`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkPositionStudyNotes(browser) {
   const fen = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1'
   const pgn = `[Event "Position notes QA"]\n[SetUp "1"]\n[FEN "${fen}"]\n\n{position introduction} * {closing study note}`
@@ -21696,6 +21751,7 @@ async function main() {
       'autosave-cursor': checkAutoSaveCursor,
       'position-notes': checkPositionStudyNotes,
       'variation-expansion': checkVariationExpansion,
+      'deep-variations': checkDeepVariationNavigation,
       'autosave-lifecycle': checkAutosavePageLifecycle,
       'autosave-tabs': checkEmptyTabPreservesRecovery,
       'keyboard-move': checkAMoveCanBePlayedFromTheKeyboard,
@@ -22588,6 +22644,7 @@ async function main() {
     await checkAutoSaveCursor(browser)
     await checkPositionStudyNotes(browser)
     await checkVariationExpansion(browser)
+    await checkDeepVariationNavigation(browser)
     await checkAutosavePageLifecycle(browser)
     await checkEmptyTabPreservesRecovery(browser)
     await checkPostVariationNotes(browser)

@@ -16,10 +16,9 @@ type Props = {
 }
 
 /**
- * How many levels deep a variation is drawn before the walk stops and says
- * so. Annotated games nest two or three deep; past this the brackets are
- * wider than the panel, and the reader is better served by stepping into the
- * line, where it becomes the one being drawn from.
+ * Unselected branches stop at this nesting depth. The selected path is always
+ * shown; other deep branches offer an action to step into the line without
+ * rendering the whole study at once.
  */
 const MAX_VARIATION_DEPTH = 6
 
@@ -56,6 +55,7 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     const [commentDraft, setCommentDraft] = useState('')
     const [variationExpansion, setVariationExpansion] = useState(() => ({ rootId: tree.root.id, ids: new Set<string>() }))
     const scrollRef = useRef<HTMLDivElement>(null)
+    const openedVariationRef = useRef<string | null>(null)
     const commentId = useId()
 
     const line = mainLine()
@@ -82,6 +82,15 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
     useLayoutEffect(() => {
         setCommentDraft(tree.getNode(current.id)?.comment ?? '')
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [current.id])
+
+    useLayoutEffect(() => {
+        const openedId = openedVariationRef.current
+        openedVariationRef.current = null
+        // Opening replaces the trigger with move buttons. Keep its focus on
+        // the newly exposed move, unless another control already owns it.
+        if (openedId !== current.id || document.activeElement !== document.body) return
+        scrollRef.current?.querySelector<HTMLButtonElement>(`[data-node-id="${openedId}"]`)?.focus({ preventScroll: true })
     }, [current.id])
 
     useEffect(() => {
@@ -139,16 +148,24 @@ export const MoveListTree = memo(function MoveListTree({ tree, onNavigate, allow
             if (index === 0) return
             const fork = chainNodes[index - 1]!
             for (const alternativeId of fork.children.slice(1)) {
-                if (depth >= MAX_VARIATION_DEPTH) {
+                if (depth >= MAX_VARIATION_DEPTH && !currentPathIds.has(alternativeId)) {
+                    const alternative = nodesSnapshot.get(alternativeId)
+                    if (!alternative) continue
+                    const startingMove = `${moveNumberPrefix(alternative.fen) ?? ''} ${alternative.san}`.trim()
                     items.push(
-                        <span
+                        <button
                             key={`${alternativeId}-deep`}
-                            className="mtree-var-more"
-                            title="A deeper variation. Step into this line to read it."
-                            aria-label="A deeper variation. Step into this line to read it."
+                            type="button"
+                            className="mtree-var-toggle"
+                            title="Open this deeper variation on the board and in the move list"
+                            aria-label={`Open deeper line starting with ${startingMove}`}
+                            onClick={event => {
+                                if (event.currentTarget === document.activeElement) openedVariationRef.current = alternativeId
+                                onNavigate(navigateTo(alternativeId))
+                            }}
                         >
-                            (…)
-                        </span>,
+                            Open deeper line
+                        </button>,
                     )
                     continue
                 }

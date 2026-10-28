@@ -147,7 +147,8 @@ given, and the app answering the reader who touches it.
 - **Read longer variations**: Choose **+N more** in the move list to expand a
   variation, then **Show fewer** to restore its preview. Each branch expands
   independently; the selected move stays visible when collapsing. Both controls
-  work with the keyboard and on touch screens.
+  work with the keyboard and on touch screens. Deeply nested branches offer
+  **Open deeper line**; the current move stays in the list at every nesting level.
 - **Keep searching**: The automatic analysis stops at the depth slider, which
   on a desktop is over in a second. Pro mode has a switch under the Coach/Pro
   toggle that asks for `go infinite` instead, so the depth climbs for as long
