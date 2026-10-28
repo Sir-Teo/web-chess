@@ -516,9 +516,6 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         () => importText.trim() ? pgnImportContentError(importText) : null,
         [importText],
     )
-    // Preflight guidance belongs to the draft, even after another control
-    // resets transient feedback.
-    const importTextError = error ?? importContentError
     const canLoadFen = Boolean(fenText.trim()) && !fenValidationError
     const canCopyShareLink = fenShareValidation.ok
     const canImportPgn = Boolean(importText.trim()) && !importContentError
@@ -587,6 +584,12 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             : null),
         [importContentError, importText, onImportManyToLibrary],
     )
+    // A database can be added to the Library, so explain that route without
+    // marking its text invalid. Keep draft guidance when other controls reset
+    // transient feedback, and preserve actual import failures.
+    const databaseImportHint = databaseGames && databaseGames.length > 1 ? PGN_MULTIPLE_GAMES_ERROR : null
+    const importTextError = (error === databaseImportHint ? null : error)
+        ?? (databaseImportHint ? null : importContentError)
 
     const handleLoadFen = () => {
         if (fenValidationError) {
@@ -940,10 +943,11 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                     }}
                                     aria-invalid={Boolean(importTextError)}
                                     aria-busy={readingFile || undefined}
-                                    aria-describedby={[importTextError ? `${importTextId}-error` : '', readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ') || undefined}
+                                    aria-describedby={[importTextError ? `${importTextId}-error` : '', databaseImportHint ? `${importTextId}-database-help` : '', readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ') || undefined}
                                 />
                             )}
                             {importTextError && <p id={`${importTextId}-error`} className="dialog-error" role="alert">{importTextError}</p>}
+                            {databaseImportHint && <p id={`${importTextId}-database-help`} className="dialog-note pgn-database-hint">{databaseImportHint}</p>}
                             {databaseGames && databaseGames.length > 1 && (
                                 <div className="dialog-database-offer">
                                     <button
@@ -951,7 +955,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         className="btn-start"
                                         onClick={() => void handleImportDatabase()}
                                         disabled={databaseBusy || readingFile}
-                                        aria-describedby={readingFile ? fileReadStatusId : undefined}
+                                        aria-describedby={[`${importTextId}-database-help`, readingFile ? fileReadStatusId : ''].filter(Boolean).join(' ')}
                                     >
                                         {databaseBusy
                                             ? 'Adding…'

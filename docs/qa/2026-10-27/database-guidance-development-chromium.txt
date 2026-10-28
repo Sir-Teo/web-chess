@@ -1,0 +1,8 @@
+{"browser":"chromium","port":"4324","commit":"acdf4bcf10a25490faf1e678e9875970d6d6d242","build":"Vite development source","dirty":true,"checks":["checkImportValidation","checkAnArchiveFetchBringsBackTheGames"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkImportValidation
+  import validation (1280px, 1x, dark): FEN/game-link errors and informational database guidance stay associated through archive username/provider/count edits, canceled file picker and tab return; usable databases have no error; corrected PGN and completed database import clear guidance without changing the board
+  import validation (375px, 2x, light): FEN/game-link errors and informational database guidance stay associated through archive username/provider/count edits, canceled file picker and tab return; usable databases have no error; corrected PGN and completed database import clear guidance without changing the board
+checkAnArchiveFetchBringsBackTheGames
+  archive fetch: Lichess brought back 2 games in one request, chess.com 3 across two
+Development focused checks passed.

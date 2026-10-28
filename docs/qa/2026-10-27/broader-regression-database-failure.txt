@@ -1,0 +1,166 @@
+{"status": "running", "driver_pid": 307968, "commit": "acdf4bcf10a25490faf1e678e9875970d6d6d242", "source_dirty": false, "dist_index_sha256": "57685c3ef6d44642828bdfed6264cc67042488ee1d383ae51b78d75055a9c367", "started_utc": "2026-10-28T17:08:33Z", "first_run": "/tmp/web-chess-complete-chromium-2026-10-28.log", "first_run_end": "externally SIGKILLed; cgroup recorded zero OOM events; no assertion failure emitted", "restart_from": "checkShortDesktopWindow"}
+{"browser":"chromium","commit":"acdf4bcf10a25490faf1e678e9875970d6d6d242","build":"existing unchanged production build on port 4319","scope":"remaining default full-suite workflows, rerunning the interrupted workflow","firstWorkflow":"checkShortDesktopWindow","workflowCalls":118}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  short window (901×360, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (901×360, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short window (1280×480, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (1280×480, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short window (1600×600, beginner): complete focused controls, all board corners, move reveal, bars, settings, clocks, practice; 200% → 100% text restores the fixed layout
+  short window (1600×600, pro): complete focused controls, all board corners, move reveal, bars, settings, clocks; 200% → 100% text restores the fixed layout
+  short mobile workspace (320×225): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (375×250): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (599×300): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (600×375): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short mobile workspace (640×450): usable board, four exposed focused corners, e2-e4 and no horizontal spill
+  short dialogs (901×360, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 100% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, dark): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  short dialogs (901×256, 200% text, light): whole mode choices, engine readings, PGN download, library save/load and Commands search remain reachable
+  portrait dialogs (320px, light, New Game difficulty): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, PGN import): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, PGN export): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, FEN draft): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, Library name): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (320px, light, Commands search): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, New Game difficulty): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, PGN import): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, PGN export): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, FEN draft): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, Library name): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  portrait dialogs (375px, dark, Commands search): 100% → 200% → 100%; full field and actions, retained value/selection/focus, independent workspace bars
+  compact footer (901px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (901px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, beginner): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer (1280px, pro): 486px reading space, complete readings, native dismissal/focus, modal and resize cleanup, scrollable AI controls
+  compact footer: a browser without the Popover API retains its inline engine readings
+  opening focus (1280×812, 1x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  opening focus (375×812, 1x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  opening focus (320×812, 2x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  opening focus (844×390, 2x): keyboard handoff focuses the fully visible token; input, scrolling, dialog and newer board focus cancel old requests; draft and position retained
+  reading space (1280px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  reading space (375px): 100% → 200% → 100% text without window resize preserves all ranks, visible keyboard focus and opening navigation; enlarged desktop header scrolls away
+  opening layout (1280px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (375px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening layout (320px): source controls stay inside the card; token/rating labels do not overlap their editable controls at 100% and 200% text
+  opening explorer: counts cleared on the move and came back as "Position ply 1"
+  tablebase: asked about the position on the board, reported "3 pieces · Win · DTM 21 · DTZ 11"
+  tablebase retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (1280px, 1x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  cloud retry (375px, 2x): repeated failure, one pending request, retained focus/position, stale result ignored, recovery
+  tablebase move reading (1280px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (1280px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 1x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 1x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  tablebase move reading (375px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  contrast (tablebase moves / pro / 200% text): 165 measured, 0 under the floor (147 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, pro): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  contrast (tablebase moves / beginner / 200% text): 148 measured, 0 under the floor (130 on a gradient, measured against its worst stop)
+  tablebase move reading (320px, 2x, beginner): full SAN/verdict/distances, 44px targets, keyboard selection starts restricted analysis
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  held shortcuts (1280px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  held shortcuts (375px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat
+  imported counters (1280px, 1x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  imported counters (375px, 2x): malformed shared roots refused; pasted/file PGNs preserve draft/board and identify the field; corrected counters load exactly
+  opening retry (1280px, 1x): token gate, correction shows loading without losing focus, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  opening retry (375px, 2x): token gate, correction shows loading without losing focus, repeated failures, one pending request, stale source ignored, retained filters/board/focus, recovery
+  play title (1280px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (1280px): held boot says loading; ready Step mode waits for the reader
+  play title (1280px): all boot attempts failed, failure appears in the tab
+  play title (375px): Your move, thinking, paused, waiting for Step, stepped search and resumed search
+  play title (375px): held boot says loading; ready Step mode waits for the reader
+  play title (375px): all boot attempts failed, failure appears in the tab
+  watch title (1280×900, 1x, slow-boot): loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (1280×900, 1x, silent-all): failed startup reports unavailable without inventing a move
+  watch title (320×480, 2x, slow-boot): loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play
+  watch title (320×480, 2x, silent-all): failed startup reports unavailable without inventing a move
+  preview ending (1280px, 1x, d8h4): Checkmate · Black wins, Move 2; restore preserves live game; click commits 0-1
+  preview ending (1280px, 1x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+  preview ending (1280px, 1x, f7e6): Stalemate · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (1280px, 1x, a1b1): Fifty-move rule · Draw, Move 50; restore preserves live game; click commits 1/2-1/2
+  preview ending (1280px, 1x, d4g7): Insufficient material · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, d8h4): Checkmate · Black wins, Move 2; restore preserves live game; click commits 0-1
+  preview ending (375px, 2x, f7g7): Checkmate · White wins, Move 1; restore preserves live game; click commits 1-0
+  preview ending (375px, 2x, f7e6): Stalemate · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, a1b1): Fifty-move rule · Draw, Move 50; restore preserves live game; click commits 1/2-1/2
+  preview ending (375px, 2x, d4g7): Insufficient material · Draw, Move 1; restore preserves live game; click commits 1/2-1/2
+  preview material (1280×900, 1x, dark, e4d5): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (1280×900, 1x, dark, e5d4): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (1280×900, 1x, dark, a2a3 e5d4): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (375×812, 1x, light, e4d5): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (375×812, 1x, light, e5d4): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (375×812, 1x, light, a2a3 e5d4): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (320×812, 2x, dark, e4d5): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (320×812, 2x, dark, e5d4): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  preview material (320×812, 2x, dark, a2a3 e5d4): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line
+  capture descriptions (1280×900, 1x, dark): quiet White/Black promotions, underpromotion branch, captured promoted queen, root/back navigation, en passant and complete preview prefixes retain the actual captures through blur/commit
+  capture descriptions (375×812, 1x, light): quiet White/Black promotions, underpromotion branch, captured promoted queen, root/back navigation, en passant and complete preview prefixes retain the actual captures through blur/commit
+  capture descriptions (320×812, 2x, dark): quiet White/Black promotions, underpromotion branch, captured promoted queen, root/back navigation, en passant and complete preview prefixes retain the actual captures through blur/commit
+  dialog close repeats (1280px, 1x, dark): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog close repeats (375px, 1x, light): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog close repeats (320px, 2x, dark): held Cancel/Done/Close leaves four dialogs closed and their openers focused; Settings summary also requires a fresh press; fresh Enter reopens each dialog and held Next still advances two positions
+  dialog focus handoff (1280px, 1x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  dialog focus handoff (375px, 1x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  dialog focus handoff (375px, 2x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  dialog focus handoff (320px, 2x): explicit opener restored; held callbacks yield to newer preview/modal; keyboard game start focuses the whole visible board, Tab stays with its controls and held confirmation preserves the game/clock
+  palette dialog return (1280px, 1x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (1280px, 1x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, button): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, typing): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  palette dialog return (375px, 2x, graph): New Game, PGN, Library and Settings return to the original opener; draft retained; normal Settings still returns
+  settings gear (1280×900, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (901×812, 1x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (375×812, 2x, light): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  settings gear (844×390, 1x, dark): pointer + Space open/close, retained preference, opener focus, native disclosure keys and no overflow
+  move entry availability (1280px, 1x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (1280px, 1x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (1280px, 1x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, hold-search): visible associated reason, matching editability, intact focus and no clipping; reply, Step, paused editing, watch-mode omission and pass-and-play
+  move entry availability (375px, 2x, slow-boot): visible associated reason, matching editability, intact focus and no clipping
+  move entry availability (375px, 2x, silent-all): visible associated reason, matching editability, intact focus and no clipping
+  command move entry (1280px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 1x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (375px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  command move entry (320px, 2x): collapsed panel opens, field focuses and plays both sides, draft/selection survive, Engine Lab returns to Analyze, newer modal owns focus, terminal/watch/waiting reasons stay disabled
+  board canvas (1280px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  board canvas (375px): changed arrow colors/moves, orientation, e2-e4, navigation and a new d2-d4 branch stay current
+  graph guide (1280px, pro, dark, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (1280px, beginner, light, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, pro, light, 1× text): available in Review, keyboard disclosure, readable layout and 44px references
+  graph guide (375px, beginner, dark, 2× text): available in Review, keyboard disclosure, readable layout and 44px references
+  review: the row reads "2 costly moves" for 1 inaccuracies, 1 mistakes and 0 blunders
+  database: 560 games, 500 kept, the other 60 never parsed (1828ms, and the button said "Adding…" first)
+  import box: 12 KB shown, 667 KB described ("2,200 games · 667 KB · too much to show here."), Clear gives the box back
+  drop: a .pgn on the board opens the import dialog holding it (339 characters), app still there
+  back: closes the sheet and keeps the board; one more Back still leaves
+  promotion: every choice clears 44px at five sizes, and is painted where it is pressed
+  contrast (promotion / 1280px / 1x / dark): 7 measured, 0 under the floor (2 on a gradient, measured against its worst stop)
+  promotion (1280×812, 1x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (1280×812, 1x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 375px / 2x / dark): 7 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (375×812, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (375×812, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  contrast (promotion / 320px / 2x / light): 7 measured, 0 under the floor (0 on a gradient, measured against its worst stop)
+  promotion (320×568, 2x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×568, 2x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (320×225, 1x, light, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (320×225, 1x, light, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  promotion (667×375, 2x, dark, wR): full names and focused targets, browser/composition scope, r underpromotion
+  promotion (667×375, 2x, dark, bR): full names and focused targets, browser/composition scope, Shift+r underpromotion
+  notice: the longest message fits 320px and is drawn in front of the bar it lands on
+  layers: nothing the app draws is buried, across five states and three sizes
+  focus: every control shows it, and the board ring clears 3:1 on all five schemes
+  names: 1296 controls over twelve surfaces, every one named and every name keeping its own printed word
+  big text: nothing loses a word at 200%, on the desktop layout or a phone, board or dialog
+  archive: an unusable username says so once the field is left, and stops when it is fixed
+Error: Lichess: the fetch reported "The board takes one game at a time, and this file holds several. Add them all to the library, or paste a single game."
+    at fail (eval at <anonymous> (/tmp/web-chess-complete-remainder.cjs:8:14), <anonymous>:36:9)
+    at assert (eval at <anonymous> (/tmp/web-chess-complete-remainder.cjs:8:14), <anonymous>:40:19)
+    at run (eval at <anonymous> (/tmp/web-chess-complete-remainder.cjs:8:14), <anonymous>:12746:7)
+    at async checkAnArchiveFetchBringsBackTheGames (eval at <anonymous> (/tmp/web-chess-complete-remainder.cjs:8:14), <anonymous>:12759:19)
+    at async resume (eval at <anonymous> (/tmp/web-chess-complete-remainder.cjs:8:14), <anonymous>:24857:5)
+    at async /tmp/web-chess-complete-remainder.cjs:12:6

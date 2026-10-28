@@ -7660,12 +7660,22 @@ async function checkImportValidation(browser) {
       const database = '1. e4 *\n\n1. d4 *'
       for (const value of ['4k3/8/8/8/8/8/8/4K3 w - - 0 1', 'https://lichess.org/abcd1234', database]) {
         await text.fill(''); await text.fill(value)
-        const description = () => text.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent)
+        const description = () => text.evaluate(el => (el.getAttribute('aria-describedby') || '').split(/\s+/)
+          .map(id => document.getElementById(id)?.textContent || '').join(' ').trim())
         const explanation = await description()
         assert(explanation && await importButton.isDisabled(), 'the preflight fixture does not explain why Import is unavailable')
+        if (value === database) {
+          const hint = dialog.locator('.pgn-database-hint')
+          await hint.scrollIntoViewIfNeeded()
+          const contrast = await page.evaluate(contrastProbe, '.pgn-database-hint')
+          assert(contrast.checked === 1 && contrast.failures.length === 0, `database guidance contrast: ${JSON.stringify(contrast)}`)
+          assert(await hint.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'database guidance overflows its dialog')
+        }
         const retained = async action => {
-          assert(await text.inputValue() === value && await text.getAttribute('aria-invalid') === 'true'
+          assert(await text.inputValue() === value && await text.getAttribute('aria-invalid') === String(value !== database)
             && await description() === explanation && await importButton.isDisabled(), `${action} erased the retained PGN draft’s validation guidance`)
+          if (value === database) assert(await dialog.getByRole('alert').count() === 0
+            && await dialog.getByRole('button', { name: 'Add 2 games to the library', exact: true }).isEnabled(), 'a usable database was reported as an invalid draft')
         }
         await dialog.locator('.archive-input').fill(`Reader${edit++}`); await retained('typing an archive username')
         await dialog.getByRole('button', { name: 'Chess.com', exact: true }).click(); await retained('choosing an archive provider')
@@ -7687,7 +7697,7 @@ async function checkImportValidation(browser) {
         && await dialog.getByRole('alert').count() === 0, 'completed database import kept obsolete preflight guidance')
       assert(await page.locator('.mtree-chip').count() === 0 && await page.locator('#chessboard-square-e2 [data-piece="wP"]').count() === 1, 'preflight guidance changed the board')
       assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `import validation errors or overflow: ${errors.join('; ')}`)
-      console.log(`  import validation (${width}px, ${scale}x, ${theme}): FEN/game-link/database guidance stays associated through archive username/provider/count edits, canceled file picker and tab return; no leakage into FEN; corrected PGN and completed database import clear guidance without changing the board`)
+      console.log(`  import validation (${width}px, ${scale}x, ${theme}): FEN/game-link errors and informational database guidance stay associated through archive username/provider/count edits, canceled file picker and tab return; usable databases have no error; corrected PGN and completed database import clear guidance without changing the board`)
     } finally { await context.close() }
   }
 }
@@ -12734,14 +12744,19 @@ async function checkAnArchiveFetchBringsBackTheGames(browser) {
         const panel = document.querySelector('.dialog-panel')
         const text = (panel?.textContent || '').replace(/\s+/g, ' ')
         const area = [...document.querySelectorAll('.dialog-panel textarea')].map(el => el.value).find(Boolean) || ''
+        const input = panel?.querySelector('textarea.input-textarea')
+        const hint = panel?.querySelector('.pgn-database-hint')
         return {
           error: (panel?.querySelector('.dialog-error')?.textContent || '').trim(),
           offer: (panel?.querySelector('.dialog-database-offer button')?.textContent || '').replace(/\s+/g, ' ').trim(),
           events: (area.match(/\[Event "[^"]*"\]/g) || []).map(tag => tag.slice(8, -2)),
           mentionsCount: /\b\d+ games\b/.test(text),
+          invalid: input?.getAttribute('aria-invalid'),
+          databaseHint: Boolean(hint?.textContent && (input?.getAttribute('aria-describedby') || '').split(/\s+/).includes(hint.id)),
         }
       })
       assert(!state.error, `${source.label}: the fetch reported "${state.error}"`)
+      assert(state.invalid !== 'true' && state.databaseHint, `${source.label}: fetched games lack associated informational Library guidance`)
       assert(asked.length >= source.requests,
         `${source.label}: expected at least ${source.requests} request(s), saw ${asked.length}`)
       assert(asked.every(url => url.includes('archivist')),
