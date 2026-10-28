@@ -1,0 +1,21 @@
+
+> web-chess@1.0.0 typecheck
+> tsc -b
+
+
+> web-chess@1.0.0 lint
+> eslint .
+
+
+> web-chess@1.0.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v4.1.12 /workspace/web-chess
+
+
+ Test Files  124 passed (124)
+      Tests  2161 passed | 1 skipped (2162)
+   Start at  05:29:56
+   Duration  39.62s (transform 3.14s, setup 0ms, import 22.81s, tests 38.85s, environment 15ms)
+

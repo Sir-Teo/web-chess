@@ -1,0 +1,22 @@
+{"browser":"firefox","port":"4327","commit":"e3543c085421b91a80332343796e9e9059fb2043","build":"/tmp/web-chess-review-options-production","checks":["checkEngineOptionEntry","checkReviewActionNames","checkThreadConfigurationOwnership","checkLabSettingsStayInSync","checkRawSpinOptionValues"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkEngineOptionEntry
+  option entry (1280px, 1x, dark): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained
+  option entry (375px, 1x, light): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained
+  option entry (320px, 2x, dark): Enter applies numeric/text values once, normalizes bounds, persists Hash, awaits readiness and restores focus; IME/repeats, newer focus, draft and board retained
+checkReviewActionNames
+  review actions (1280×900, 1x, pro, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (375×812, 1x, beginner, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (320×812, 2x, pro, light): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+  review actions (844×390, 2x, beginner, dark): finished-game offer matches its visible name; Stop review names and displays live progress, fits, stops/restarts by keyboard without held-key toggles and completes on the same board
+checkThreadConfigurationOwnership
+  thread configuration: startup readiness, console/direct-control acknowledgements, managed-command guards, newer drafts and subsequent search
+checkLabSettingsStayInSync
+  contrast (Engine Lab shared settings / 1280px): 131 measured, 0 under the floor (113 on a gradient, measured against its worst stop)
+  Engine Lab (1280px): shared settings, next search, reload, and console updates agree
+  contrast (Engine Lab shared settings / 375px): 129 measured, 0 under the floor (110 on a gradient, measured against its worst stop)
+  Engine Lab (375px): shared settings, next search, reload, and console updates agree
+checkRawSpinOptionValues
+  raw spin options (1280px, 1x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior
+  raw spin options (375px, 2x): native syntax/ranges, retained settings/output/drafts, missing values, canonical keywords/names, multiword zero value and managed Hash behavior
+Production review/option checks passed.

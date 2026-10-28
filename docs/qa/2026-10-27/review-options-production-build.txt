@@ -1,0 +1,25 @@
+
+> web-chess@1.0.0 build
+> tsc -b && vite build --outDir /tmp/web-chess-review-options-production
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 197 modules transformed.
+
+(!) outDir /tmp/web-chess-review-options-production is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+rendering chunks...
+computing gzip size...
+../../tmp/web-chess-review-options-production/index.html                               4.10 kB │ gzip:   1.85 kB
+../../tmp/web-chess-review-options-production/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+../../tmp/web-chess-review-options-production/assets/LibraryDialog-CzCaaBRU.css        5.21 kB │ gzip:   1.35 kB
+../../tmp/web-chess-review-options-production/assets/index-DQ3HyB4k.css              135.39 kB │ gzip:  25.16 kB
+../../tmp/web-chess-review-options-production/assets/NewGameDialog-DubJeJ15.js         4.36 kB │ gzip:   1.57 kB
+../../tmp/web-chess-review-options-production/assets/LibraryDialog-CBpKXB1a.js        15.33 kB │ gzip:   5.29 kB
+../../tmp/web-chess-review-options-production/assets/PgnDialog-Bk4nC3nW.js            33.34 kB │ gzip:  11.13 kB
+../../tmp/web-chess-review-options-production/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+../../tmp/web-chess-review-options-production/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+../../tmp/web-chess-review-options-production/assets/index-spAnF5Da.js               418.89 kB │ gzip: 135.46 kB
+../../tmp/web-chess-review-options-production/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.57s
