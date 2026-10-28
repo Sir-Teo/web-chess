@@ -22771,6 +22771,32 @@ async function checkCommandPaletteKeyboard(browser) {
       assert(await input.getAttribute('aria-activedescendant') === initial, 'ArrowUp did not restore the selection')
       await input.fill('board')
       const selected = await input.getAttribute('aria-activedescendant')
+      await input.evaluate(el => {
+        el.setSelectionRange(1, 1)
+        window.__paletteShiftDownPrevented = null
+        const record = event => {
+          if (event.key !== 'ArrowDown') return
+          window.__paletteShiftDownPrevented = event.defaultPrevented
+          window.removeEventListener('keydown', record)
+        }
+        window.addEventListener('keydown', record)
+      })
+      await input.press('Shift+ArrowDown')
+      assert(await page.evaluate(() => window.__paletteShiftDownPrevented === false)
+        && await input.getAttribute('aria-activedescendant') === selected
+        && await input.inputValue() === 'board' && await input.evaluate(el => el === document.activeElement),
+      'Shift+Down in the search was captured or selected a command instead of editing text')
+      const prevented = await input.evaluate(el => [
+        { key: 'ArrowUp', ctrlKey: true }, { key: 'ArrowDown', metaKey: true }, { key: 'ArrowUp', altKey: true },
+        { key: 'Enter', shiftKey: true }, { key: 'Enter', ctrlKey: true }, { key: 'Enter', metaKey: true },
+        { key: 'Enter', altKey: true }, { key: 'Enter', keyCode: 229 },
+      ].map(init => {
+        const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+        el.dispatchEvent(event)
+        return event.defaultPrevented
+      }))
+      assert(prevented.every(value => !value) && await input.isVisible()
+        && await input.getAttribute('aria-activedescendant') === selected, 'a browser/editing/composing chord moved or ran a palette command')
       /*
        * Home and End are the board's "first position" and "last position",
        * and `isTypingTarget` is what keeps the global handler out of a text
@@ -22793,6 +22819,9 @@ async function checkCommandPaletteKeyboard(browser) {
       await input.fill('flip')
       await input.dispatchEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })
       assert(await input.isVisible(), 'confirming IME composition ran a command')
+      await input.press('Control+Enter')
+      assert(await input.isVisible() && Math.abs((await square.boundingBox()).x - after.x) < 1,
+        'Control+Enter in the search ran Flip board')
       await input.press('Enter')
       await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
       const restored = await square.boundingBox()
@@ -22814,7 +22843,7 @@ async function checkCommandPaletteKeyboard(browser) {
         await page.keyboard.press('Escape')
       }
       console.log(`  command reopen (${width}px): query and selection reset before the first key, across three reopen cycles`)
-      console.log(`  command keyboard (${width}px): Tab activates the focused button; search editing and Enter work`)
+      console.log(`  command keyboard (${width}px): Tab activates the focused button; native Shift+Down and modified/composing keys preserve search editing and command selection; plain arrows and Enter work`)
     } finally { await context.close() }
   }
 }
