@@ -1,0 +1,49 @@
+{
+  "browser": "chromium",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "action": "Pass and play",
+      "focused": true,
+      "wholeBoard": true,
+      "moves": 0,
+      "pieces": 32,
+      "clocks": 1,
+      "modal": false
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "action": "Play again",
+      "focused": true,
+      "wholeBoard": true,
+      "moves": 0,
+      "pieces": 32,
+      "clocks": 1,
+      "modal": false
+    },
+    {
+      "width": 320,
+      "scale": 2,
+      "action": "Pass and play",
+      "focused": true,
+      "wholeBoard": true,
+      "moves": 0,
+      "pieces": 32,
+      "clocks": 1,
+      "modal": false
+    },
+    {
+      "width": 320,
+      "scale": 2,
+      "action": "Play again",
+      "focused": true,
+      "wholeBoard": true,
+      "moves": 0,
+      "pieces": 32,
+      "clocks": 1,
+      "modal": false
+    }
+  ]
+}
