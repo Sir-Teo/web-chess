@@ -3,12 +3,13 @@ import { isCompositionKey } from './shortcutKeys'
 import { parseFenCounterValue } from '../engine/fen'
 import { truncateUtf16 } from '../engine/textLength'
 
-export function PositionCounterInput({ id, value, rawValue, min, position, onValueChange }: {
+export function PositionCounterInput({ id, value, rawValue, min, position, descriptionId, onValueChange }: {
   id: string
   value: number
   rawValue: string | undefined
   min: number
   position: object
+  descriptionId?: string
   onValueChange: (value: number) => void
 }) {
   const rawNumber = useMemo(() => parseFenCounterValue(rawValue), [rawValue])
@@ -35,7 +36,8 @@ export function PositionCounterInput({ id, value, rawValue, min, position, onVal
     : truncateUtf16(rawValue, 32) + (rawValue.length > 32 ? '…' : ''), [rawValue])
 
   return <><input id={id} type="number" min={min} step={1} inputMode="numeric" value={draft}
-    aria-invalid={rawInvalid || undefined} aria-describedby={rawInvalid ? errorId : undefined}
+    aria-invalid={rawInvalid || undefined}
+    aria-describedby={[rawInvalid ? errorId : undefined, descriptionId].filter(Boolean).join(' ') || undefined}
     // Replacing the shown fallback with the same number is still an explicit
     // repair. onInput also sees that edit when React's change tracker does not.
     onInput={event => {

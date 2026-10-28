@@ -423,6 +423,12 @@
     overflow-wrap: anywhere;
 }
 
+.fen-counter-help {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
 .dialog-check-option {
     display: inline-flex;
     align-items: center;

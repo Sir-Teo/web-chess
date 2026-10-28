@@ -1049,6 +1049,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     <label htmlFor={halfmoveId}>Halfmove</label>
                                                     <PositionCounterInput
                                                         id={halfmoveId}
+                                                        descriptionId={`${halfmoveId}-help`}
                                                         min={0}
                                                         value={setup.halfmove}
                                                         rawValue={rawSetupFields[4]}
@@ -1060,6 +1061,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     <label htmlFor={fullmoveId}>Fullmove</label>
                                                     <PositionCounterInput
                                                         id={fullmoveId}
+                                                        descriptionId={`${fullmoveId}-help`}
                                                         min={1}
                                                         value={setup.fullmove}
                                                         rawValue={rawSetupFields[5]}
@@ -1068,6 +1070,12 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                     />
                                                 </div>
                                             </div>
+                                            <p id={`${halfmoveId}-help`} className="fen-setup-help fen-counter-help">
+                                                <strong>Halfmove:</strong> Moves since the last pawn move or capture. Each player's move counts.
+                                            </p>
+                                            <p id={`${fullmoveId}-help`} className="fen-setup-help fen-counter-help">
+                                                <strong>Fullmove:</strong> Current move number. Increases after Black moves.
+                                            </p>
                                         </div>
                                         <div className="fen-setup-control-block">
                                             <label className="fen-counter-field" htmlFor={enPassantId}>

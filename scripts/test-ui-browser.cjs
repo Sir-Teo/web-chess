@@ -20393,11 +20393,13 @@ async function checkCounterRawFeedback(browser) {
       const half = dialog.getByRole('spinbutton', { name: 'Halfmove', exact: true })
       const full = dialog.getByRole('spinbutton', { name: 'Fullmove', exact: true })
       const load = dialog.getByRole('button', { name: 'Load & Analyze', exact: true })
+      const errorDescriptionId = field => field.evaluate(el => (el.getAttribute('aria-describedby') || '').split(/\s+/)
+        .find(id => document.getElementById(id)?.classList.contains('fen-counter-error')))
       for (const [rawHalf, rawFull] of [['17junk', '23junk'], ['9007199254740993', '0']]) {
         const original = `${root} ${rawHalf} ${rawFull}`
         await input.fill(original)
         const invalid = await half.getAttribute('aria-invalid')
-        const description = await half.getAttribute('aria-describedby')
+        const description = await errorDescriptionId(half)
         const help = description ? await dialog.locator(`[id="${description}"]`).textContent() : null
         await half.focus()
         await page.keyboard.press('Tab')
@@ -20409,7 +20411,7 @@ async function checkCounterRawFeedback(browser) {
         assert(await half.inputValue() === '0' && await half.getAttribute('aria-invalid') !== 'true'
           && await half.evaluate(element => element === document.activeElement), 'counter repair lost its value, error state or focus')
         assert(await full.getAttribute('aria-invalid') === 'true' && await load.isDisabled(), 'repairing one counter hid the other error')
-        const fullDescription = await full.getAttribute('aria-describedby')
+        const fullDescription = await errorDescriptionId(full)
         assert(fullDescription && (await dialog.locator(`[id="${fullDescription}"]`).textContent()).includes(rawFull), 'Fullmove does not expose its invalid raw token')
         await full.focus()
         await page.keyboard.press('Enter')
@@ -20426,13 +20428,13 @@ async function checkCounterRawFeedback(browser) {
       assert(await input.inputValue() === `${root} 000 001` && await half.getAttribute('aria-invalid') !== 'true'
         && await full.getAttribute('aria-invalid') !== 'true' && await load.isEnabled(), 'valid leading-zero counters are being treated as invalid or rewritten on read')
       await input.fill(root)
-      const missing = await half.getAttribute('aria-describedby')
+      const missing = await errorDescriptionId(half)
       assert(await half.getAttribute('aria-invalid') === 'true' && missing
         && (await dialog.locator(`[id="${missing}"]`).textContent()).includes('Missing'), 'missing counters have no explicit field guidance')
       await half.focus(); await page.keyboard.press('Enter')
       assert(await input.inputValue() === `${root} 0 1` && await load.isEnabled(), 'Enter cannot accept the shown defaults for missing counters')
       await input.fill(`${root} ${'9'.repeat(100)} 1`)
-      const bounded = await half.getAttribute('aria-describedby')
+      const bounded = await errorDescriptionId(half)
       const guidance = bounded && dialog.locator(`[id="${bounded}"]`)
       assert(guidance && (await guidance.textContent()).length < 120 && (await guidance.textContent()).includes('…'), 'a long invalid counter creates unbounded field feedback')
       await guidance.scrollIntoViewIfNeeded()

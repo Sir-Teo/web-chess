@@ -1,0 +1,10 @@
+{"browser":"chromium","port":"4324","commit":"e46fabf43bb60d6724a49dd8e3198abb98aa8c8c","build":"Vite development source","dirty":true,"checks":["checkCounterRawFeedback","checkFenCounterMeaning"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkCounterRawFeedback
+  raw counter feedback (1280px, 1x, dark): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+  raw counter feedback (375px, 2x, light): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+  raw counter feedback (320px, 2x, dark): exact bad/missing/unsafe FEN values have associated bounded guidance; focus/blur preserves raw data; Enter explicitly accepts safe defaults without loading; sibling errors and valid leading zeros survive
+checkFenCounterMeaning
+  FEN counters (1280px, 1x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+  FEN counters (375px, 2x): malformed/rounded values refused with associated errors; draft/board retained; corrected decimal counters round-trip
+Development focused checks passed.
