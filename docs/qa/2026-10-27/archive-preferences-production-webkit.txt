@@ -1,0 +1,38 @@
+
+> web-chess@1.0.0 test:ui:browser
+> node scripts/test-ui-browser.cjs
+
+
+> web-chess@1.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 199 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               4.10 kB │ gzip:   1.85 kB
+dist/assets/reviewBackupWorker-DqYiTm0h.js   67.87 kB
+dist/assets/LibraryDialog-BXloarg5.css        5.37 kB │ gzip:   1.37 kB
+dist/assets/index-DID8ivA7.css              135.68 kB │ gzip:  25.23 kB
+dist/assets/NewGameDialog-C4wdGlaV.js         4.51 kB │ gzip:   1.63 kB
+dist/assets/LibraryDialog-E-bC7acT.js        16.10 kB │ gzip:   5.46 kB
+dist/assets/PgnDialog-Dx-B0NU_.js            35.44 kB │ gzip:  11.84 kB
+dist/assets/chess-CkC8Zd_q.js               118.31 kB │ gzip:  37.32 kB
+dist/assets/react-CIDWvPgF.js               192.49 kB │ gzip:  60.35 kB
+dist/assets/index-CThodHO_.js               424.22 kB │ gzip: 137.07 kB
+dist/assets/eco-Y2BFBEFE.js                 469.58 kB │ gzip:  61.18 kB
+✓ built in 2.59s
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  archive preferences (1280px, 1x, dark, malformed): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive preferences (375px, 1x, light, empty): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive preferences (320px, 2x, dark, saved): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive preferences (375px, 2x, light, blocked storage): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests
+  archive keyboard (1280px, 1x, dark, Lichess): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (1280px, 1x, dark, Chess.com): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (375px, 1x, light, Lichess): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (375px, 1x, light, Chess.com): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (320px, 2x, dark, Lichess): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive keyboard (320px, 2x, dark, Chess.com): count/username Enter fetch once; IME and repeats preserved; busy Enter retains request/draft/focus; explicit cancel and normalized retry work; board changes only on Import
+  archive fetch: Lichess brought back 2 games in one request, chess.com 3 across two
+Focused browser UI checks passed.
