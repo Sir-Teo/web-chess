@@ -2,7 +2,7 @@ import { memo, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent
 import type { WdlPoint, WinratePoint } from '../engine/analysis'
 import { formatMoveTime, type MoveTimePoint } from '../engine/moveTimes'
 import { useElementWidth } from '../hooks/useElementWidth'
-import { describeWdlPosition, describeWinratePosition, formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout } from './graphLabels'
+import { describeWdlPosition, describeWinratePosition, formatGraphAxisLabel, formatGraphPositionLabel, formatWdlReadout, formatWinrateReadout, shortGraphPositionLabel } from './graphLabels'
 import {
   GRAPH_FALLBACK_WIDTH,
   GRAPH_HEIGHT,
@@ -28,6 +28,8 @@ function graphCoverageText(points: readonly { index: number }[], maxIndex: numbe
 
 type WinrateGraphProps = {
   points: WinratePoint[]
+  /** Move notation for the whole line, including positions without readings. */
+  positionLabels?: readonly string[]
   currentIndex?: number
   /**
    * Plies in the line being shown, which is what the navigator's range has to
@@ -147,7 +149,7 @@ function GraphReadout({ x, padLeft, padTop, height, padBottom, text }: {
   )
 }
 
-export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WinrateGraphProps) {
+export const WinrateGraph = memo(function WinrateGraph({ points, positionLabels, currentIndex, lastPlyIndex, onNavigate }: WinrateGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const coverageId = useId()
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
@@ -199,7 +201,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? describeWinratePosition(selectedPoint, selectedIndex) : undefined}
+          aria-valuetext={isNavigable ? describeWinratePosition(selectedPoint, selectedIndex, positionLabels?.[selectedIndex]) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
@@ -264,7 +266,7 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
               padTop={padTop}
               height={height}
               padBottom={padBottom}
-              text={formatWinrateReadout(readoutPoint, readoutIndex)}
+              text={formatWinrateReadout(readoutPoint, readoutIndex, positionLabels?.[readoutIndex])}
             />
           )}
         </svg>
@@ -276,13 +278,14 @@ export const WinrateGraph = memo(function WinrateGraph({ points, currentIndex, l
 
 type WdlProgressGraphProps = {
   points: WdlPoint[]
+  positionLabels?: readonly string[]
   currentIndex?: number
   /** See {@link WinrateGraphProps}. */
   lastPlyIndex?: number
   onNavigate?: (index: number) => void
 }
 
-export const WdlProgressGraph = memo(function WdlProgressGraph({ points, currentIndex, lastPlyIndex, onNavigate }: WdlProgressGraphProps) {
+export const WdlProgressGraph = memo(function WdlProgressGraph({ points, positionLabels, currentIndex, lastPlyIndex, onNavigate }: WdlProgressGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const coverageId = useId()
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
@@ -332,7 +335,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? describeWdlPosition(selectedPoint, selectedIndex) : undefined}
+          aria-valuetext={isNavigable ? describeWdlPosition(selectedPoint, selectedIndex, positionLabels?.[selectedIndex]) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
@@ -391,7 +394,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
               padTop={padTop}
               height={height}
               padBottom={padBottom}
-              text={formatWdlReadout(readoutPoint, readoutIndex)}
+              text={formatWdlReadout(readoutPoint, readoutIndex, positionLabels?.[readoutIndex])}
             />
           )}
         </svg>
@@ -403,6 +406,7 @@ export const WdlProgressGraph = memo(function WdlProgressGraph({ points, current
 
 type MoveTimesGraphProps = {
   points: MoveTimePoint[]
+  positionLabels?: readonly string[]
   currentIndex?: number
   /** See {@link WinrateGraphProps}. */
   lastPlyIndex?: number
@@ -410,17 +414,17 @@ type MoveTimesGraphProps = {
 }
 
 /** The readout for a move-time bar, or for a ply that has no reading. */
-function formatMoveTimeReadout(point: MoveTimePoint | undefined, index: number): string {
+function formatMoveTimeReadout(point: MoveTimePoint | undefined, index: number, positionLabel?: string): string {
   if (index <= 0) return 'Start'
-  if (!point) return `Move ${index} · no clock`
+  if (!point) return `${shortGraphPositionLabel(undefined, index, positionLabel)} · no time reading`
   return `${point.label} · ${formatMoveTime(point.seconds)}`
 }
 
-function describeMoveTimePosition(point: MoveTimePoint | undefined, index: number): string {
-  const where = formatGraphPositionLabel(point, index)
+function describeMoveTimePosition(point: MoveTimePoint | undefined, index: number, positionLabel?: string): string {
+  const where = formatGraphPositionLabel(point, index, positionLabel)
   return point
     ? `${where}, ${point.side === 'w' ? 'White' : 'Black'} spent ${formatMoveTime(point.seconds)}`
-    : where
+    : index <= 0 ? where : `${where}, no time reading`
 }
 
 /**
@@ -433,7 +437,7 @@ function describeMoveTimePosition(point: MoveTimePoint | undefined, index: numbe
  * Bars rather than a line, because a move's time is a quantity of its own,
  * not a reading of a position that flows into the next.
  */
-export const MoveTimesGraph = memo(function MoveTimesGraph({ points, currentIndex, lastPlyIndex, onNavigate }: MoveTimesGraphProps) {
+export const MoveTimesGraph = memo(function MoveTimesGraph({ points, positionLabels, currentIndex, lastPlyIndex, onNavigate }: MoveTimesGraphProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const available = useElementWidth(scrollRef, GRAPH_FALLBACK_WIDTH)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
@@ -478,7 +482,7 @@ export const MoveTimesGraph = memo(function MoveTimesGraph({ points, currentInde
           aria-valuemin={isNavigable ? 0 : undefined}
           aria-valuemax={isNavigable ? maxIndex : undefined}
           aria-valuenow={isNavigable ? selectedIndex : undefined}
-          aria-valuetext={isNavigable ? describeMoveTimePosition(selectedPoint, selectedIndex) : undefined}
+          aria-valuetext={isNavigable ? describeMoveTimePosition(selectedPoint, selectedIndex, positionLabels?.[selectedIndex]) : undefined}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onMouseMove={maxIndex > 0 ? e => setHoverIndex(indexAtClientX(e.currentTarget, e.clientX)) : undefined}
@@ -532,7 +536,7 @@ export const MoveTimesGraph = memo(function MoveTimesGraph({ points, currentInde
               padTop={padTop}
               height={height}
               padBottom={padBottom}
-              text={formatMoveTimeReadout(readoutPoint, readoutIndex)}
+              text={formatMoveTimeReadout(readoutPoint, readoutIndex, positionLabels?.[readoutIndex])}
             />
           )}
         </svg>

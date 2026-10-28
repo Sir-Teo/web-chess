@@ -22,13 +22,14 @@ export function formatGraphAxisLabel(point: GraphPointLabel): string {
   return number || first
 }
 
-export function formatGraphPositionLabel(point: GraphPointLabel | undefined, index: number): string {
+/** Line metadata names a missing sample without inventing a measurement. */
+export function formatGraphPositionLabel(point: GraphPointLabel | undefined, index: number, positionLabel?: string): string {
   if (index <= 0) return 'Start position'
 
-  const label = point?.label.trim()
+  const label = point?.label.trim() || positionLabel?.trim()
   if (label && label.toLowerCase() !== 'start') return `After ${label}`
 
-  return `After move ${index}`
+  return `After half-move ${index}`
 }
 
 /**
@@ -40,16 +41,18 @@ export function formatGraphPositionLabel(point: GraphPointLabel | undefined, ind
 export function describeWinratePosition(
   point: (GraphPointLabel & { whiteWinrate: number }) | undefined,
   index: number,
+  positionLabel?: string,
 ): string {
-  const where = formatGraphPositionLabel(point, index)
+  const where = formatGraphPositionLabel(point, index, positionLabel)
   return point ? `${where}, White expected score ${point.whiteWinrate.toFixed(1)}%` : `${where}, no reading`
 }
 
 export function describeWdlPosition(
   point: (GraphPointLabel & { white: number; draw: number; black: number }) | undefined,
   index: number,
+  positionLabel?: string,
 ): string {
-  const where = formatGraphPositionLabel(point, index)
+  const where = formatGraphPositionLabel(point, index, positionLabel)
   return point
     ? `${where}, White ${point.white.toFixed(0)}%, draw ${point.draw.toFixed(0)}%, Black ${point.black.toFixed(0)}%`
     : `${where}, no reading`
@@ -61,11 +64,11 @@ export function describeWdlPosition(
  * readout has a rail's width to live in -- about 190px of plot -- so the
  * "After ..." of the accessible label is spent elsewhere.
  */
-function shortGraphPositionLabel(point: GraphPointLabel | undefined, index: number): string {
+export function shortGraphPositionLabel(point: GraphPointLabel | undefined, index: number, positionLabel?: string): string {
   if (index <= 0) return 'Start'
-  const label = point?.label.trim()
+  const label = point?.label.trim() || positionLabel?.trim()
   if (label && label.toLowerCase() !== 'start') return label
-  return `Move ${index}`
+  return `Half-move ${index}`
 }
 
 /**
@@ -77,8 +80,9 @@ function shortGraphPositionLabel(point: GraphPointLabel | undefined, index: numb
 export function formatWinrateReadout(
   point: (GraphPointLabel & { whiteWinrate: number }) | undefined,
   index: number,
+  positionLabel?: string,
 ): string {
-  const where = shortGraphPositionLabel(point, index)
+  const where = shortGraphPositionLabel(point, index, positionLabel)
   return point ? `${where} · White score ${point.whiteWinrate.toFixed(1)}%` : `${where} · no reading`
 }
 
@@ -86,8 +90,9 @@ export function formatWinrateReadout(
 export function formatWdlReadout(
   point: (GraphPointLabel & { white: number; draw: number; black: number }) | undefined,
   index: number,
+  positionLabel?: string,
 ): string {
-  const where = shortGraphPositionLabel(point, index)
+  const where = shortGraphPositionLabel(point, index, positionLabel)
   return point
     ? `${where} · W ${point.white.toFixed(0)} · D ${point.draw.toFixed(0)} · B ${point.black.toFixed(0)}`
     : `${where} · no reading`

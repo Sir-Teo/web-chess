@@ -1,0 +1,13 @@
+{"browser":"webkit","port":"4324","commit":"f85039f59bef5e45730a2cd96526933012fa7518","build":"Vite development source","dirty":true,"checks":["checkGraphPositionLabels","checkGraphCoverage"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkGraphPositionLabels
+  graph move labels (1280×900, 1x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph move labels (375×812, 1x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph move labels (320×812, 2x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+  graph move labels (844×390, 2x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges
+checkGraphCoverage
+  graph coverage (1280×900, 1x, dark): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph coverage (375×812, 1x, light): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph coverage (320×812, 2x, dark): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+  graph coverage (844×390, 2x, light): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves
+Development focused checks passed.

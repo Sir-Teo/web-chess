@@ -13896,8 +13896,8 @@ async function checkGraphCoverage(browser) {
         await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '7')
         await page.keyboard.down('ArrowLeft'); await page.keyboard.up('ArrowLeft')
         await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '6')
-        assert((await graph.getAttribute('aria-valuetext')).includes('no reading')
-          && (await graph.locator('.graph-readout').textContent()).includes('no reading'), 'an unscored position lacks visible or spoken missing-data feedback')
+        assert(await graph.getAttribute('aria-valuetext') === 'After 3... a6, no reading'
+          && await graph.locator('.graph-readout').textContent() === '3... a6 · no reading', 'an unscored position lacks its actual move notation or missing-data feedback')
         await graph.press('End')
         await page.waitForFunction(() => document.querySelector('[aria-label="White expected score move navigator"]')?.getAttribute('aria-valuenow') === '8')
       }
@@ -13909,6 +13909,88 @@ async function checkGraphCoverage(browser) {
       assert(await page.locator('.mtree-chip').count() === 8 && errors.length === 0, `coverage changed the line or raised errors: ${errors.join('; ')}`)
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'graph coverage overflows the viewport')
       console.log(`  graph coverage (${width}×${height}, ${scale}x, ${theme}): 2/9 contiguous then 5/9 scattered readings, associated non-live descriptions and gap context; browser/IME chords untouched, bare held arrows repeat, visible/spoken missing data; all 9 readings remove the note without changing navigation or moves`)
+    } finally { await context.close() }
+  }
+}
+
+/** Missing samples still belong to real moves, including imported roots and variations. */
+async function checkGraphPositionLabels(browser) {
+  for (const [width, height, scale] of [[1280, 900, 1], [375, 812, 1], [320, 812, 2], [844, 390, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript().replace('if (window.__withholdEngineInfo) return;',
+        'if (window.__withholdEngineInfo) { this.finishTimer = setTimeout(() => this.finishSearch(), 15); return; }'))
+      await page.addInitScript(() => {
+        window.__withholdEngineInfo = true
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, showWdl: true, engineProfile: 'lite-single-local' }))
+      })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await page.getByRole('button', { name: 'Open PGN and FEN dialog' }).click()
+      await page.locator('.pgn-dialog textarea').first().fill('[Event "Sparse setup study"]\n[SetUp "1"]\n[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 42"]\n[TimeControl "180+2"]\n\n42... e5 {[%clk 0:02:59]} 43. e4 {[%clk 0:02:58]} Nc6 {[%clk 0:02:56]} 44. Nf3 {[%clk 0:02:54]} Nf6 {[%clk 0:02:53]} 45. Bb5 a6 {[%clk 0:02:50]} 46. Ba4 {[%clk 0:02:48]} *')
+      await page.getByRole('button', { name: 'Import & Analyze', exact: true }).click()
+      await page.locator('.mtree-chip').nth(7).waitFor()
+      // Let the requested import sampling finish without readings before
+      // supplying three explicit samples; otherwise its queue fills the gaps.
+      await page.locator('.sample-sweep-copy').waitFor({ state: 'hidden' })
+      await page.waitForFunction(() => document.querySelector('.bottom .status')?.textContent === 'ready')
+      for (const index of [0, 1, 8]) {
+        if (index === 0) await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
+        else await page.locator('.mtree-chip').nth(index - 1).click()
+        const before = await page.evaluate(() => window.__uciCommands.filter(command => command.startsWith('go ')).length)
+        await page.evaluate(() => { window.__withholdEngineInfo = false })
+        await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
+        await page.waitForFunction(before => window.__uciCommands.filter(command => command.startsWith('go ')).length > before
+          && document.querySelector('.bottom .status')?.textContent === 'ready', before)
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await page.evaluate(() => { window.__withholdEngineInfo = true })
+      }
+      const names = ['White expected score move navigator', 'WDL trend move navigator', 'Move times navigator']
+      const graphs = names.map(name => page.getByRole('slider', { name, exact: true }))
+      const expectMissing = async (label, max) => {
+        for (const [index, graph] of graphs.entries()) {
+          await page.mouse.move(0, 0)
+          await graph.focus()
+          const missing = index === 2 ? 'no time reading' : 'no reading'
+          assert(await graph.getAttribute('aria-valuetext') === `After ${label}, ${missing}`
+            && await graph.locator('.graph-readout').textContent() === `${label} · ${missing}`
+            && await graph.getAttribute('aria-valuemax') === String(max), `sparse graph ${names[index]} lost the line's actual move: ${await graph.getAttribute('aria-valuetext')}`)
+        }
+      }
+      await page.locator('.mtree-chip').nth(5).click()
+      await expectMissing('45. Bb5', 8)
+      await graphs[2].scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `/tmp/web-chess-graph-position-labels-${browser.browserType().name()}-${width}-${scale}x.png` })
+      for (const [index, graph] of graphs.entries()) {
+        await page.mouse.move(0, 0); await graph.focus(); await graph.press('ArrowRight')
+        await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '7')
+        assert((await graph.getAttribute('aria-valuetext')).startsWith('After 45... a6, ')
+          && (await graph.locator('.graph-readout').textContent()).startsWith('45... a6 · '), 'a Black move lost its imported fullmove number')
+        if (index === 2) assert(await graph.getAttribute('aria-valuetext') === 'After 45... a6, Black spent 5.0s', 'a measured clock value changed')
+        await graph.press('ArrowLeft')
+        await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '6')
+      }
+      await graphs[2].press('End')
+      await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '8')
+      assert(await graphs[2].getAttribute('aria-valuetext') === 'After 46. Ba4, no time reading', 'a clock with no prior measurement claimed an elapsed time or missing clock')
+      await graphs[2].press('Home')
+      await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '0')
+      assert(await graphs[2].getAttribute('aria-valuetext') === 'Start position' && await graphs[2].locator('.graph-readout').textContent() === 'Start', 'the root claims to have a move time')
+
+      await page.locator('.mtree-chip').nth(4).click()
+      await page.locator('.move-entry summary').click()
+      await page.locator('.move-entry input').fill('Bc4'); await page.locator('.move-entry input').press('Enter')
+      await waitForBoardPiece(page, 'c4', 'White bishop')
+      await expectMissing('45. Bc4', 6)
+      await page.locator('.mtree-chip').filter({ hasText: /^Bb5$/ }).click()
+      await graphs[2].focus(); await graphs[2].press('End')
+      await page.waitForFunction(() => document.querySelector('[aria-label="Move times navigator"]')?.getAttribute('aria-valuenow') === '8')
+      assert(await graphs[2].getAttribute('aria-valuetext') === 'After 46. Ba4, no time reading'
+        && await page.locator('.mtree-chip').count() === 9, 'returning to the original line retained a variation label or lost moves')
+      assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `graph labels raised errors or overflow: ${errors.join('; ')}`)
+      console.log(`  graph move labels (${width}×${height}, ${scale}x): sparse White/Black readings keep move-42 setup notation; clock gaps speak no time reading, measured 5s and root preserved; new 45. Bc4 branch and return keep their own labels and ranges`)
     } finally { await context.close() }
   }
 }
@@ -22962,6 +23044,7 @@ async function main() {
       'review-depth': checkReviewAtRequestedDepth,
       'graph-readings': checkTheWinrateCardFollowsTheBoard,
       'graph-coverage': checkGraphCoverage,
+      'graph-position-labels': checkGraphPositionLabels,
       'move-times': checkMoveTimesAreGraphed,
       'observed-layout': checkObservedLayout,
       'narrow-desktop': checkNarrowDesktopLayout,
@@ -23912,6 +23995,7 @@ async function main() {
     await checkEveryControlIsFingerSized(browser)
     await checkTheWinrateCardFollowsTheBoard(browser)
     await checkGraphCoverage(browser)
+    await checkGraphPositionLabels(browser)
     await checkObservedLayout(browser)
     await checkNarrowDesktopLayout(browser)
     await checkCompactToolbar(browser)

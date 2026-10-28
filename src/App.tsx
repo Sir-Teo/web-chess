@@ -68,7 +68,7 @@ import { reviewImpactLabel } from './engine/reviewImpact'
 import { reviewFaultPosition, reviewFaults, stepToReviewFault } from './engine/reviewNavigation'
 import { normalizeSpinOptionInput } from './engine/options'
 import { topArrowColor } from './engine/arrowColors'
-import { bestMoveLabel, ponderMoveLabel } from './engine/moveLabels'
+import { bestMoveLabel, moveNumberPrefix, ponderMoveLabel } from './engine/moveLabels'
 import {
   countLabel,
   engineTelemetryLabel,
@@ -3443,6 +3443,11 @@ function App() {
 
   const currentLineMoves = useMemo(
     () => currentLineNodes.slice(1).map(n => n.move!).filter(Boolean),
+    [currentLineNodes],
+  )
+  const graphPositionLabels = useMemo(
+    () => currentLineNodes.map((node, index) => index === 0 ? 'Start'
+      : `${moveNumberPrefix(node.fen) ?? ''} ${node.san}`.trim()),
     [currentLineNodes],
   )
 
@@ -8281,6 +8286,7 @@ function App() {
                   </div>
                 ) : <WinrateGraph
                   points={winratePoints}
+                  positionLabels={graphPositionLabels}
                   currentIndex={currentPathNodes.length - 1}
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
@@ -8306,6 +8312,7 @@ function App() {
                   </div>
                 ) : <WdlProgressGraph
                   points={wdlPoints}
+                  positionLabels={graphPositionLabels}
                   currentIndex={currentPathNodes.length - 1}
                   lastPlyIndex={currentLineMoves.length}
                   onNavigate={navigateToGraphPoint}
@@ -8329,6 +8336,7 @@ function App() {
                   </header>
                   <MoveTimesGraph
                     points={moveTimePoints}
+                    positionLabels={graphPositionLabels}
                     currentIndex={currentPathNodes.length - 1}
                     lastPlyIndex={currentLineMoves.length}
                     onNavigate={navigateToGraphPoint}
