@@ -5909,7 +5909,10 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
       'bullet is already on, so switching it on proves nothing')
     asked = await askedUrls()
     const before = asked.filter(url => url.includes('/lichess')).length
-    await bullet.click()
+    await bullet.focus()
+    await page.keyboard.down('Enter')
+    await page.keyboard.down('Enter')
+    await page.keyboard.up('Enter')
     assert(await bullet.getAttribute('aria-pressed') === 'true', 'the bullet pill did not switch on')
     await page.waitForTimeout(3000)
 
@@ -5938,7 +5941,7 @@ async function checkTheOpeningFiltersReachTheRequest(browser) {
     }
     assert(await card.locator('.opening-speed-toggle').count() === 0,
       'the speed pills are still offered for Masters, which has no speeds')
-    console.log(`  opening filters: Lichess asked with ${speeds.join(',')}`
+    console.log(`  opening filters: held Enter selects once; Lichess asked with ${speeds.join(',')}`
       + ` and ratings ${latestLichess.searchParams.get('ratings')}; ${mastersUrls.length} Masters request(s) carried neither`)
   } finally {
     await context.close()
@@ -8561,12 +8564,18 @@ async function checkLibraryStarredFilter(browser) {
       assert(await filter.getAttribute('aria-controls') === await dialog.locator('.library-list').getAttribute('id'), 'starred filter does not identify its list')
       const first = dialog.getByRole('button', { name: 'Unstar Study A', exact: true })
       await first.focus()
-      await first.press('Space')
+      await page.keyboard.down('Enter')
       const second = dialog.getByRole('button', { name: 'Unstar Study B', exact: true })
       await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Unstar Study B')
-      assert(await rows.count() === 1, 'unstarred game remained in the filtered list')
-      await second.press('Enter')
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await rows.count() === 1, 'one held unstar press did not remove exactly one game')
+      assert(await second.getAttribute('aria-pressed') === 'true', 'held Enter also unstarred the next game')
+      await page.keyboard.down('Enter')
       await page.waitForFunction(() => document.activeElement?.classList.contains('library-starred-filter'))
+      await page.keyboard.down('Enter')
+      await page.keyboard.up('Enter')
+      assert(await filter.getAttribute('aria-pressed') === 'true', 'held Enter turned off the filter after removing its last game')
       assert(await rows.count() === 0 && (await results.innerText()).includes('No starred game matches “Study”.'), 'empty starred search is misleading')
       await dialog.getByRole('button', { name: 'Clear saved-game search', exact: true }).click()
       assert((await results.innerText()).includes('No starred games yet.'), 'an empty starred shelf looks like an empty library')
@@ -8603,6 +8612,9 @@ async function checkLibraryStarredFilter(browser) {
       if (width === 320 && scale === 2) assert(await dialog.locator('.library-toolbar').evaluate(element => element.getBoundingClientRect().height < 155), 'starred filter consumes too much enlarged phone reading space')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'starred library overflows the viewport')
       await page.screenshot({ path: `/tmp/web-chess-library-starred-${browser.browserType().name()}-${width}-${scale}x.png` })
+      await page.waitForFunction(() => ![...document.querySelectorAll('.library-dialog .library-status')]
+        .some(el => el.textContent.includes('Saving library changes')))
+      assert(await dialog.getByRole('alert').count() === 0, 'library changes were not acknowledged before reloading')
       await search.fill('Study C')
       await dialog.getByRole('button', { name: 'Load Study C', exact: true }).click()
       await dialog.waitFor({ state: 'detached' })
@@ -8610,13 +8622,14 @@ async function checkLibraryStarredFilter(browser) {
       await page.waitForFunction(() => Boolean(localStorage.getItem('webchess:auto-saved-game:v1')))
       await page.reload({ waitUntil: 'domcontentloaded' })
       await page.getByRole('button', { name: 'Restore', exact: true }).click()
+      await waitForBoardPiece(page, 'e5', 'Black pawn')
       await page.getByRole('button', { name: 'Open saved games library', exact: true }).click()
       await search.fill('Study C')
       await dialog.getByRole('button', { name: 'Unstar Study C', exact: true }).waitFor()
       await search.fill('Study A')
       await dialog.getByRole('button', { name: 'Star Study A', exact: true }).waitFor()
       assert(errors.length === 0, `starred library errors: ${errors.join('; ')}`)
-      console.log(`  starred library (${width}px, ${scale}x, ${theme}): search/sort compose; keyboard unstar follows rows then filter; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload`)
+      console.log(`  starred library (${width}px, ${scale}x, ${theme}): search/sort compose; held Enter preserves the next favorite and filter after focus moves; accurate empty states/counts; pagination resets; 44px reachable filter; game loads and star edits survive reload`)
     } finally { await context.close() }
   }
 }
@@ -12611,6 +12624,14 @@ async function checkAutoplayWalksTheLine(browser) {
     await page.keyboard.press('Home')
     await page.waitForFunction(() => /Move 1/.test(document.querySelector('.board-meta-move')?.textContent || ''), null, { timeout: 5000 })
 
+    const next = page.getByRole('button', { name: 'Go to next move', exact: true })
+    await next.focus()
+    await page.keyboard.down('Enter')
+    await page.waitForFunction(() => document.querySelector('.mtree-chip-active')?.textContent.includes('e4'))
+    await page.keyboard.down('Enter')
+    await page.keyboard.up('Enter')
+    await page.waitForFunction(() => document.querySelector('.mtree-chip-active')?.textContent.includes('e5'))
+    await page.getByRole('button', { name: 'Go to first position', exact: true }).click()
     await page.getByRole('button', { name: 'Autoplay the moves' }).click()
     // The speed row appears once something is moving at it.
     await page.getByRole('button', { name: 'Set autoplay speed to Fast' }).click()
@@ -12619,7 +12640,7 @@ async function checkAutoplayWalksTheLine(browser) {
     await page.getByRole('button', { name: 'Autoplay the moves' }).waitFor({ timeout: 5000 })
     assert(await page.getByRole('button', { name: 'Stop autoplay' }).count() === 0,
       'autoplay stayed on after reaching the end of the line')
-    console.log('  autoplay: walked to the end of the line and stopped')
+    console.log('  autoplay: native repeated Enter advances move navigation; playback walks to the end and stops')
   } finally {
     await context.close()
   }

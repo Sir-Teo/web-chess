@@ -7524,7 +7524,12 @@ function App() {
   // ─────────────────────────────────────────────────────
   return (
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}
-      data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}>
+      data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}
+      onKeyDownCapture={event => {
+        // A held Enter must not undo a toggle or activate the next toggle after focus moves.
+        if (event.key === 'Enter' && event.repeat && event.target instanceof Element
+          && event.target.closest('button[aria-pressed]')) event.preventDefault()
+      }}>
       <span className="rem-probe" ref={remProbeRef} aria-hidden="true" />
       <nav
         className="skip-links"
