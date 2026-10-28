@@ -1,0 +1,59 @@
+{
+  "browser": "chromium",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "method": "Enter",
+      "active": {
+        "tag": "BODY",
+        "isName": false
+      }
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "method": "Space",
+      "active": {
+        "tag": "BODY",
+        "isName": false
+      }
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "method": "pointer",
+      "active": {
+        "tag": "BODY",
+        "isName": false
+      }
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "method": "Enter",
+      "active": {
+        "tag": "BODY",
+        "isName": false
+      }
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "method": "Space",
+      "active": {
+        "tag": "BODY",
+        "isName": false
+      }
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "method": "pointer",
+      "active": {
+        "tag": "BODY",
+        "isName": false
+      }
+    }
+  ]
+}

@@ -126,6 +126,7 @@ export function LibraryDialog({
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
     const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
     const renameInputRef = useRef<HTMLInputElement>(null)
+    const nameInputRef = useRef<HTMLInputElement>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
     const starredFilterRef = useRef<HTMLButtonElement>(null)
     const listRef = useRef<HTMLUListElement>(null)
@@ -286,6 +287,7 @@ export function LibraryDialog({
         if (!currentPgn || !loaded) return
         const typedName = name.trim()
         if (savedPgnRef.current === currentKey && (!typedName || savedNameRef.current === typedName)) return
+        nameInputRef.current?.focus()
         // An empty field saves under the name the field is showing: the
         // placeholder is the app's suggestion, and it knows the opening,
         // which the save path does not.
@@ -445,6 +447,7 @@ export function LibraryDialog({
                             }}>
                                 <input
                                     id={nameId}
+                                    ref={nameInputRef}
                                     data-library-name
                                     type="text"
                                     value={name}

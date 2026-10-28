@@ -1,0 +1,59 @@
+{
+  "browser": "webkit",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "method": "Enter",
+      "active": {
+        "tag": "INPUT",
+        "isName": true
+      }
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "method": "Space",
+      "active": {
+        "tag": "INPUT",
+        "isName": true
+      }
+    },
+    {
+      "width": 1280,
+      "scale": 1,
+      "method": "pointer",
+      "active": {
+        "tag": "INPUT",
+        "isName": true
+      }
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "method": "Enter",
+      "active": {
+        "tag": "INPUT",
+        "isName": true
+      }
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "method": "Space",
+      "active": {
+        "tag": "INPUT",
+        "isName": true
+      }
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "method": "pointer",
+      "active": {
+        "tag": "INPUT",
+        "isName": true
+      }
+    }
+  ]
+}

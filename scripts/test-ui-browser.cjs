@@ -9237,9 +9237,10 @@ async function checkLibraryEditing(browser) {
       const name = dialog.locator('[data-library-name]')
       await page.waitForFunction(() => document.activeElement?.matches('.library-dialog [data-library-name]'))
       await name.fill('My carefully named game')
-      await name.press('Enter')
+      await dialog.getByRole('button', { name: 'Save', exact: true }).focus()
+      await page.keyboard.press('Enter')
       await dialog.getByRole('alert').filter({ hasText: 'holds 500 games' }).waitFor()
-      assert(await name.inputValue() === 'My carefully named game', 'a rejected save erased the typed game name')
+      assert(await name.inputValue() === 'My carefully named game' && await name.evaluate(el => el === document.activeElement), 'a rejected save erased the typed game name or lost its input focus')
 
       const firstRow = dialog.locator('.library-row').first()
       const original = await firstRow.locator('strong').innerText()
@@ -9413,6 +9414,7 @@ async function checkOneGestureSavesOneGame(browser) {
     await page.locator('.library-save-row .btn-start').click()
     await page.waitForFunction(() => document.querySelectorAll('.library-row').length === 3)
     await page.getByRole('button', { name: 'Load Second copy (2)', exact: true }).waitFor()
+    assert(await page.locator('[data-library-name]').evaluate(el => el === document.activeElement), 'saving with the button did not keep focus in the naming field')
 
     const discard = async (name, remaining) => {
       await page.getByRole('button', { name: `Delete ${name}`, exact: true }).click()
