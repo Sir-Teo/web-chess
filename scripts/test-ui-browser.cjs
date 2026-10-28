@@ -17478,10 +17478,17 @@ async function checkObservedLayout(browser) {
     await page.getByRole('button', { name: 'Analyze position', exact: true }).click()
     await page.locator('.winrate-graph').first().waitFor()
     const graphFits = async () => {
-      await page.waitForFunction(() => [...document.querySelectorAll('.graph-scroll')].every(el => {
-        const svg = el.querySelector('svg')
-        return !svg || Math.abs(Number(svg.getAttribute('width')) - el.clientWidth) <= 1
-      }))
+      await page.waitForFunction(() => {
+        // Matching a transient graph/container width during the 220ms panel
+        // animation is insufficient for comparing its restored final width.
+        const panels = [...document.querySelectorAll('.panel.left, .panel.right')]
+        return panels.length === 2 && panels.every(panel => Math.abs(panel.getBoundingClientRect().width
+          - Number(panel.querySelector('[role="separator"]')?.getAttribute('aria-valuenow'))) <= 0.5)
+          && [...document.querySelectorAll('.graph-scroll')].every(el => {
+            const svg = el.querySelector('svg')
+            return !svg || Math.abs(Number(svg.getAttribute('width')) - el.clientWidth) <= 1
+          })
+      })
       return page.locator('.winrate-graph').first().evaluate(el => Number(el.getAttribute('width')))
     }
     for (const [selector, attribute] of [
