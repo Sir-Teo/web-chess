@@ -11392,10 +11392,17 @@ async function checkWatchTabTitle(browser) {
           await page.getByRole('button', { name: 'Resume AI play', exact: true }).waitFor()
           await waitTitle('AI paused')
           await page.evaluate(() => { window.__previewEndingPv = 'e7e5' })
-          await page.getByRole('button', { name: 'Resume AI play', exact: true }).press('Enter')
+          await page.getByRole('button', { name: 'Resume AI play', exact: true }).focus()
+          await page.keyboard.down('Enter')
           await waitTitle('Engine thinking')
-          await page.getByRole('button', { name: 'Pause AI', exact: true }).press('Enter')
+          await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+          await waitTitle('Engine thinking')
+          assert(await page.getByRole('button', { name: 'Pause AI', exact: true }).evaluate(el => el === document.activeElement), 'held AI Resume lost its focused pause action')
+          await page.keyboard.down('Enter')
           await waitTitle('AI paused')
+          await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+          await waitTitle('AI paused')
+          assert(await page.getByRole('button', { name: 'Resume AI play', exact: true }).evaluate(el => el === document.activeElement), 'held AI Pause lost its focused resume action')
           await page.getByRole('button', { name: 'Set AI speed to Step', exact: true }).click()
           await waitTitle('AI waiting for Step')
           for (let failure = 0; failure < 2; failure++) {
@@ -11428,7 +11435,7 @@ async function checkWatchTabTitle(browser) {
           assert(await page.title() === 'Web Chess', 'pass-and-play retained the previous watch status')
         }
         assert(errors.length === 0 && await page.locator('.app-error-shell').count() === 0, `watch title errors: ${errors.join('; ')}`)
-        console.log(`  watch title (${width}×${height}, ${scale}x, ${scenario}): ${scenario === 'slow-boot' ? 'loading, Step, thinking, pause, resume, runtime fallback/failure/retry; retained move and cleared status on pass-and-play' : 'failed startup reports unavailable without inventing a move'}`)
+        console.log(`  watch title (${width}×${height}, ${scale}x, ${scenario}): ${scenario === 'slow-boot' ? 'loading, Step, thinking, held native Pause/Resume and focus, runtime fallback/failure/retry; retained move and cleared status on pass-and-play' : 'failed startup reports unavailable without inventing a move'}`)
       } finally { await context.close() }
     }
   }
@@ -11621,9 +11628,30 @@ async function checkHeldToggleShortcuts(browser) {
       assert(await page.locator('.clock-paused').count() === 1 && await page.locator('.clock-face.running').count() === 0, 'holding Space resumed the paused game clock')
       await page.keyboard.press('Space')
       await page.locator('.clock-face.clock-white.running').waitFor()
+      for (const mode of ['Human vs Human', 'Human vs AI']) {
+        if (mode === 'Human vs AI') await startGameMode(page, mode)
+        const pauseName = mode === 'Human vs Human' ? 'Pause clock' : 'Pause AI'
+        const resumeName = mode === 'Human vs Human' ? 'Resume clock' : 'Resume AI play'
+        const pause = () => page.getByRole('button', { name: pauseName, exact: true })
+        const resume = () => page.getByRole('button', { name: resumeName, exact: true })
+        await pause().focus()
+        await page.keyboard.down('Enter'); await resume().waitFor()
+        await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+        assert(await resume().count() === 1 && await resume().evaluate(el => el === document.activeElement)
+          && await page.locator('.clock-face.running').count() === 0, `held ${pauseName} resumed the game or lost focus`)
+        const stopped = await page.locator('.clock-face strong').allTextContents()
+        await page.waitForTimeout(1100)
+        assert(JSON.stringify(await page.locator('.clock-face strong').allTextContents()) === JSON.stringify(stopped), `${pauseName} left the banks counting`)
+        await page.keyboard.down('Enter'); await pause().waitFor()
+        await page.keyboard.down('Enter'); await page.keyboard.up('Enter')
+        assert(await pause().count() === 1 && await pause().evaluate(el => el === document.activeElement)
+          && await page.locator('.clock-face.clock-white.running').count() === 1, `held ${resumeName} paused the game again or lost focus`)
+        await page.keyboard.press('Enter'); await resume().waitFor()
+        assert(await page.locator('.clock-face.running').count() === 0, `a fresh Enter failed to pause ${mode}`)
+      }
       const repeats = await page.evaluate(() => window.__heldRepeats)
       assert(['f', ' ', 'ArrowRight', 'k'].every(key => repeats.includes(key)), `the browser did not generate the expected repeated keydowns: ${repeats}`)
-      console.log(`  held shortcuts (${width}px): Flip, autoplay, timed Pause and Commands act once; fresh presses work; navigation arrows repeat`)
+      console.log(`  held shortcuts (${width}px): Flip, autoplay, timed Pause and Commands act once; native clock/AI Pause and Resume ignore held Enter, retain focus and hold banks; fresh presses work; navigation arrows repeat`)
     } finally { await context.close() }
   }
 }

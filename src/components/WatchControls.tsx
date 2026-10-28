@@ -126,6 +126,7 @@ export function WatchControls({
                         <button
                             type="button"
                             className={`wc-btn wc-btn-clock ${clockRunning ? 'wc-btn-pause' : 'wc-btn-resume'}`}
+                            onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }}
                             onClick={clockRunning ? onPause : onResume}
                             title={`${clockRunning ? 'Pause' : 'Resume'} clock (Space)`}
                             aria-label={`${clockRunning ? 'Pause' : 'Resume'} clock`}
@@ -148,11 +149,11 @@ export function WatchControls({
                             <IconStepForward /> {stepThinking ? 'Thinking…' : 'Step'}
                         </button>
                     ) : paused ? (
-                        <button type="button" className="wc-btn wc-btn-resume" onClick={onResume} title="Resume AI" aria-label="Resume AI play" aria-keyshortcuts="Space">
+                        <button type="button" className="wc-btn wc-btn-resume" onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }} onClick={onResume} title="Resume AI" aria-label="Resume AI play" aria-keyshortcuts="Space">
                             <IconPlay /> Resume
                         </button>
                     ) : (
-                        <button type="button" className="wc-btn wc-btn-pause" onClick={onPause} title="Pause AI" aria-label="Pause AI" aria-keyshortcuts="Space">
+                        <button type="button" className="wc-btn wc-btn-pause" onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault() }} onClick={onPause} title="Pause AI" aria-label="Pause AI" aria-keyshortcuts="Space">
                             <IconPause /> Pause
                         </button>
                     )}
