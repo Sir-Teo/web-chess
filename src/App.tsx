@@ -6938,6 +6938,7 @@ function App() {
   // The Preview pill beside it says the position is not the game's.
   const displayedResultLabel = previewChess ? previewEnding?.label : gameResultLabel
   const displayedPosition = previewChess ?? game
+  const displayedFen = linePreview?.fen ?? fen
   const turnLabel = displayedResultLabel
     ?? `${displayedPosition.turn() === 'w' ? 'White' : 'Black'} to move${displayedPosition.isCheck() ? ' · Check' : ''}`
   // An imported game already carries who played it. The app parsed those
@@ -6953,7 +6954,7 @@ function App() {
   const importedResult = knownPgnHeader(pgnHeaders.Result)
   const importedGameTitle = [importedPlayers, knownPgnHeader(pgnHeaders.Event, APP_PLACEHOLDER_HEADERS.Event), importedResult]
     .filter(Boolean).join(' · ')
-  const labelFenFields = (linePreview?.fen ?? fen).split(/\s+/)
+  const labelFenFields = displayedFen.split(/\s+/)
   const labelFullmove = Number(labelFenFields[5]) || 1
   // Once the game is over there is no move to come, so name the move it ended
   // on: Fool's mate is over on move 2, but the FEN already counts White's 3rd.
@@ -6988,8 +6989,8 @@ function App() {
   // Counted from the game's own root rather than the standard array, so a
   // position pasted in as a FEN does not open fourteen captures down.
   const material = useMemo(
-    () => materialBalance(mainLineNodes[0]?.fen ?? '', fen),
-    [fen, mainLineNodes],
+    () => materialBalance(mainLineNodes[0]?.fen ?? '', displayedFen),
+    [displayedFen, mainLineNodes],
   )
   const materialLeader: 'w' | 'b' | null = material.delta > 0 ? 'w' : material.delta < 0 ? 'b' : null
   const materialDetail = useMemo(() => {

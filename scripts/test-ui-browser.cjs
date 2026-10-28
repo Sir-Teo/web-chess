@@ -10670,6 +10670,70 @@ async function checkDialogFocusHandoff(browser) {
   }
 }
 
+async function checkPreviewMaterial(browser) {
+  const cases = [
+    ['7k/8/8/3p4/4P3/8/8/7K w - - 0 1', 'e4d5', null, ['White +1']],
+    ['7k/8/8/4p3/3P4/8/8/7K b - - 0 1', 'e5d4', null, ['Black +1']],
+    ['7k/8/8/4p3/3P4/8/P7/7K w - - 0 1', 'a2a3 e5d4', 'White +1', ['White +1', null]],
+  ]
+  for (const [width, height, scale, theme] of [[1280, 900, 1, 'dark'], [375, 812, 1, 'light'], [320, 812, 2, 'dark']]) {
+    for (const [fen, pv, original, expected] of cases) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' })
+      const page = await context.newPage(), errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      try {
+        await page.addInitScript(fakeEngineScript())
+        await page.addInitScript(({ pv, theme }) => {
+          window.__previewEndingPv = pv
+          localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'analysis', analysisExperience: 'pro', autoAnalyze: false, engineProfile: 'lite-single-local', theme }))
+        }, { pv, theme })
+        await page.goto(`${BASE}#fen=${encodeURIComponent(fen)}`, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+        const material = page.locator('.board-meta-material')
+        const assertMaterial = async (label, stage) => {
+          if (label === null) assert(await material.count() === 0, `${stage}: equal material still shows an advantage`)
+          else assert(await material.count() === 1 && (await material.locator('[aria-hidden="true"]').textContent()).trim() === label,
+            `${stage}: material does not describe the displayed board (expected ${label}, found ${(await material.allTextContents()).join(' ') || 'none'})`)
+        }
+        await assertMaterial(original, 'initial position')
+        const analyze = page.getByRole('button', { name: 'Run analysis', exact: true })
+        await analyze.click()
+        const moves = page.locator('.coach-line-moves .pv-move')
+        await moves.first().waitFor()
+        await page.mouse.move(1, 1)
+        const chess = new (require('chess.js').Chess)(fen)
+        const uciMoves = pv.split(' ')
+        for (let index = 0; index < uciMoves.length; index++) {
+          const uci = uciMoves[index]
+          const move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+          await moves.nth(index).focus()
+          await page.locator('.board-meta-preview').waitFor()
+          await page.locator(`#chessboard-square-${move.to} [data-piece="${move.color}${move.piece.toUpperCase()}"]`).waitFor()
+          await assertMaterial(expected[index], `preview ${index + 1}`)
+          assert(await page.locator('.mtree-chip').count() === 0, 'inspecting material committed a preview move')
+          await analyze.focus()
+          await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+          await assertMaterial(original, 'restored position')
+        }
+        await moves.last().hover()
+        await page.locator('.board-meta-preview').waitFor()
+        await assertMaterial(expected.at(-1), 'pointer preview')
+        if (width === 375 && pv === 'e4d5') {
+          await material.scrollIntoViewIfNeeded()
+          await page.screenshot({ path: `/tmp/web-chess-preview-material-${browser.browserType().name()}-phone.png`, fullPage: true })
+        }
+        await moves.last().click()
+        await page.waitForFunction(() => !document.querySelector('.board-meta-preview'))
+        await assertMaterial(expected.at(-1), 'committed line')
+        assert(await page.locator('.mtree-chip').count() === uciMoves.length, 'committing the preview recorded the wrong line')
+        assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'preview material overflows the document')
+        assert(errors.length === 0, `preview material errors: ${errors.join('; ')}`)
+        console.log(`  preview material (${width}×${height}, ${scale}x, ${theme}, ${pv}): each focused/hovered board reports its actual advantage or equality; blur restores live material; inspection preserves the tree and commit records the same line`)
+      } finally { await context.close() }
+    }
+  }
+}
+
 async function checkPreviewEndingFeedback(browser) {
   for (const [width, scale, theme] of [[1280, 1, 'dark'], [375, 2, 'light']]) {
     for (const [fen, pv, ending, moveNumber, result] of [
@@ -21722,6 +21786,7 @@ async function main() {
       'play-title': checkPlayTabTitle,
       'watch-title': checkWatchTabTitle,
       'preview-endings': checkPreviewEndingFeedback,
+      'preview-material': checkPreviewMaterial,
       'dialog-handoff': checkDialogFocusHandoff,
       'palette-dialog-return': checkPaletteDialogReturn,
       'settings-toggle': checkSettingsGearToggle,
@@ -22646,6 +22711,7 @@ async function main() {
     await checkPlayTabTitle(browser)
     await checkWatchTabTitle(browser)
     await checkPreviewEndingFeedback(browser)
+    await checkPreviewMaterial(browser)
     await checkDialogFocusHandoff(browser)
     await checkPaletteDialogReturn(browser)
     await checkSettingsGearToggle(browser)
