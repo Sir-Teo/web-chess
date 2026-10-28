@@ -7526,6 +7526,21 @@ function App() {
     <main className="app-shell" data-workspace-mode={workspaceMode} data-compact-chrome={compactDesktopChrome || undefined}
       data-scroll-chrome={scrollWorkspaceChrome || undefined} data-scroll-dialogs={scrollDialogs || undefined}
       onKeyDownCapture={event => {
+        // WebKit can ignore Select All and Copy in read-only native fields.
+        const field = event.target
+        if (!event.defaultPrevented && (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)
+          && field.readOnly && field === document.activeElement && event.ctrlKey !== event.metaKey
+          && !event.altKey && !event.shiftKey && !isCompositionKey(event.nativeEvent)) {
+          if (event.key.toLowerCase() === 'a') {
+            event.preventDefault()
+            field.select()
+          } else if (event.key.toLowerCase() === 'c' && field.selectionStart !== null
+            && field.selectionEnd !== null && field.selectionEnd > field.selectionStart) {
+            try {
+              if (document.execCommand('copy')) event.preventDefault()
+            } catch { /* Leave the browser's default Copy available. */ }
+          }
+        }
         // A held Enter must not undo a toggle or activate the next toggle after focus moves.
         if (event.key === 'Enter' && event.repeat && event.target instanceof Element
           && event.target.closest('button[aria-pressed]')) event.preventDefault()

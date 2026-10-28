@@ -1,0 +1,73 @@
+{
+  "browser": "webkit",
+  "fixture": {
+    "r": "read-only textarea",
+    "e": "editable textarea",
+    "i": "read-only text input"
+  },
+  "results": [
+    {
+      "id": "r",
+      "key": "Control+a",
+      "start": 0,
+      "end": 0,
+      "length": 23
+    },
+    {
+      "id": "r",
+      "key": "Meta+a",
+      "start": 0,
+      "end": 0,
+      "length": 23
+    },
+    {
+      "id": "r",
+      "key": "ControlOrMeta+a",
+      "start": 0,
+      "end": 0,
+      "length": 23
+    },
+    {
+      "id": "e",
+      "key": "Control+a",
+      "start": 0,
+      "end": 22,
+      "length": 22
+    },
+    {
+      "id": "e",
+      "key": "Meta+a",
+      "start": 0,
+      "end": 0,
+      "length": 22
+    },
+    {
+      "id": "e",
+      "key": "ControlOrMeta+a",
+      "start": 0,
+      "end": 22,
+      "length": 22
+    },
+    {
+      "id": "i",
+      "key": "Control+a",
+      "start": 0,
+      "end": 0,
+      "length": 20
+    },
+    {
+      "id": "i",
+      "key": "Meta+a",
+      "start": 0,
+      "end": 0,
+      "length": 20
+    },
+    {
+      "id": "i",
+      "key": "ControlOrMeta+a",
+      "start": 0,
+      "end": 0,
+      "length": 20
+    }
+  ]
+}

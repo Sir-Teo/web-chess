@@ -1,0 +1,13 @@
+{"browser":"webkit","port":"4324","commit":"8f526b9afa7d86016e6444aa9cc128154542497b","build":"Vite development source","dirty":true,"checks":["checkLiveExportCopy"]}
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+checkLiveExportCopy
+Selection after Control+A {"focused":true,"start":0,"end":0,"length":257,"platform":"Linux x86_64"}
+Selection at assertion {"equal":true,"expected":"[Event \"Web Chess Game\"]\n[Site \"Web Chess\"]\n[Date \"2026.10.28\"]\n[Round \"1\"]\n[White \"Player 1\"]\n[Black \"Player 2\"]\n[Result \"*\"]\n\n1. e4 { [%eval 0.55]; [%wcbest e2e4];\n[%wcengine %5B%22lite-multi-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D];\nBook } *\n","actual":"[Event \"Web Chess Game\"]\n[Site \"Web Chess\"]\n[Date \"2026.10.28\"]\n[Round \"1\"]\n[White \"Player 1\"]\n[Black \"Player 2\"]\n[Result \"*\"]\n\n1. e4 { [%eval 0.55]; [%wcbest e2e4];\n[%wcengine %5B%22lite-multi-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D];\nBook } *\n","focused":true,"active":"<textarea id=\"_r_b_\" class=\"input-textarea\" readonly=\"\" aria-describedby=\"_r_b_-help\">[Event \"Web Chess Game\"]\n[Site \"Web Chess\"]\n[Date \"2026.10.28\"]\n[Round \"1\"]\n[White \"Player 1\"]\n[Black \"Player 2\"]\n[Result \"*\"]\n\n1. e4 { [%eval 0.55]; [%wcbest e2e4];\n[%wcengine %5B%22lite-multi-local%22%2C%2218.0.7%22%2C%22Fake%20Stockfish%22%5D];\nBook } *\n</textarea>","start":0,"end":0,"length":257,"platform":"Linux x86_64"}
+Error: live analysis replaced selected export text or collapsed its selection
+    at fail (eval at <anonymous> (/tmp/web-chess-export-selection-diagnostic.cjs:17:14), <anonymous>:36:9)
+    at assert (eval at <anonymous> (/tmp/web-chess-export-selection-diagnostic.cjs:17:14), <anonymous>:40:19)
+    at assertSelectedCopy (eval at <anonymous> (/tmp/web-chess-export-selection-diagnostic.cjs:17:14), <anonymous>:6919:9)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:502:9)
+    at async Object.checkLiveExportCopy (eval at <anonymous> (/tmp/web-chess-export-selection-diagnostic.cjs:17:14), <anonymous>:6929:7)
+    at async /tmp/web-chess-export-selection-diagnostic.cjs:22:48

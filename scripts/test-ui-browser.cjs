@@ -6915,9 +6915,28 @@ async function checkLiveExportCopy(browser) {
         assert(await output.inputValue() === expected && await output.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length), 'live analysis replaced selected export text or collapsed its selection')
         await page.keyboard.press('Control+c')
         assert(await page.evaluate(() => window.__liveNativeSelection) === expected, 'native Copy received different text from the selected snapshot')
+        await page.evaluate(() => { window.__liveNativeSelection = null })
+        await page.keyboard.press('Meta+c')
+        assert(await page.evaluate(() => window.__liveNativeSelection) === expected, 'Command+C did not copy the selected read-only PGN')
         if (nativeClipboard) await page.waitForFunction(async text => await window.__readLiveClipboard() === text, expected, { timeout: 5000 })
+        const prefix = expected.slice(0, 24)
+        await output.evaluate((el, length) => el.setSelectionRange(0, length), prefix.length)
+        await page.keyboard.press('Control+c')
+        assert(await page.evaluate(() => window.__liveNativeSelection) === prefix, 'read-only Copy ignored a partial selection')
+        if (nativeClipboard) await page.waitForFunction(async text => await window.__readLiveClipboard() === text, prefix, { timeout: 5000 })
+        await output.press('Control+a')
       }
       await output.focus(); await output.press('Control+a')
+      const fullySelected = () => output.evaluate(el => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === el.value.length)
+      assert(await fullySelected(), 'Control+A did not select the read-only PGN before the live update')
+      await output.evaluate(el => el.setSelectionRange(0, 0))
+      await output.press('Meta+a')
+      assert(await fullySelected(), 'Command+A did not select the read-only PGN before the live update')
+      const ignored = await output.evaluate(el => [
+        { ctrlKey: true, shiftKey: true }, { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true },
+        { ctrlKey: true, isComposing: true }, { ctrlKey: true, keyCode: 229 }, {},
+      ].flatMap(extra => ['a', 'c'].map(key => { const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extra }); el.dispatchEvent(event); return event.defaultPrevented })))
+      assert(ignored.every(prevented => !prevented), 'read-only Select All intercepted a composing or different modifier chord')
       const original = await output.inputValue()
       assert(await output.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent.includes('updates resume')), 'export field does not explain when live updates resume')
       await publish(40, 125)
@@ -6979,7 +6998,7 @@ async function checkLiveExportCopy(browser) {
       assert((await output.inputValue()).includes('[%eval -9.00]') && await dialog.getByRole('button', { name: 'Copied', exact: true }).count() === 0, 'leaving the held reading did not reveal and unconfirm newer text')
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'live export explanation overflows the viewport')
       assert(errors.length === 0, `live export errors: ${errors.join('; ')}`)
-      console.log(`  live export (${width}px, ${scale}x, ${theme}): selected text survives engine score updates; native Copy${nativeClipboard ? ' + clipboard' : ' event'}; latest download; current and delayed copy feedback; fallback/options/tab recovery; non-focusing action refresh and hold`)
+      console.log(`  live export (${width}px, ${scale}x, ${theme}): Ctrl/Command+A/C select and copy full/partial read-only text; composing and other chords stay native; selection survives engine updates; native Copy${nativeClipboard ? ' + clipboard' : ' event'}; latest download; delayed feedback, fallback/options/tabs and non-focusing action refresh/hold`)
     } finally { await context.close() }
   }
 }
@@ -7097,7 +7116,7 @@ async function checkManualClipboardFallback(browser) {
         } })
         document.addEventListener('copy', () => {
           const field = document.activeElement
-          if (field instanceof HTMLTextAreaElement) window.__manualCopySelection = field.value.slice(field.selectionStart, field.selectionEnd)
+          if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) window.__manualCopySelection = field.value.slice(field.selectionStart, field.selectionEnd)
         })
       }, theme)
       await page.goto(BASE, { waitUntil: 'domcontentloaded' })
@@ -7134,6 +7153,17 @@ async function checkManualClipboardFallback(browser) {
       assert(!(await output.inputValue()).includes('Unicode note'), 'Comments option did not change the exported text')
       await dialog.getByRole('button', { name: 'Copy PGN', exact: true }).click()
       await selectedCopy(output, 'Select PGN text')
+      await dialog.getByRole('button', { name: 'Copy Game Link', exact: true }).click()
+      const link = dialog.getByRole('textbox', { name: 'Game link fallback', exact: true })
+      await link.waitFor(); await link.focus()
+      const url = await link.inputValue()
+      await link.evaluate(el => el.setSelectionRange(0, 0))
+      await link.press('Control+a')
+      assert(await link.evaluate(el => el.selectionStart === 0 && el.selectionEnd === el.value.length), 'Control+A did not select the read-only link input')
+      await link.evaluate(el => el.setSelectionRange(0, 0))
+      await link.press('Meta+a'); await link.press('Meta+c')
+      assert(await page.evaluate(() => window.__manualCopySelection) === url, 'Command+A/C did not copy the whole read-only fallback link')
+      if (nativeClipboard) await page.waitForFunction(async value => await window.__readManualClipboard() === value, url, { timeout: 5000 })
       await dialog.getByRole('button', { name: 'FEN', exact: true }).click()
       assert(await dialog.getByRole('button', { name: 'Select PGN text', exact: true }).count() === 0, 'FEN tab offers selection of the previous PGN')
       const fen = dialog.locator('.fen-textarea')
@@ -7147,7 +7177,7 @@ async function checkManualClipboardFallback(browser) {
       await dialog.waitFor({ state: 'detached' })
       await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Open PGN and FEN dialog', null, { timeout: 5000 })
       assert(errors.length === 0, `manual-copy errors: ${errors.join('; ')}`)
-      console.log(`  manual copy (${width}×${height}, ${scale}x, ${theme}): denied API, complete Unicode PGN and edited FEN selection, current export options, native Copy${nativeClipboard ? ' + actual clipboard' : ' event'}, 44px actions and opener focus`)
+      console.log(`  manual copy (${width}×${height}, ${scale}x, ${theme}): denied API, complete Unicode PGN and editable FEN selection; Ctrl/Command+A/C on read-only fallback link; current export options, native Copy${nativeClipboard ? ' + actual clipboard' : ' event'}, 44px actions and opener focus`)
     } finally { await context.close() }
   }
 }

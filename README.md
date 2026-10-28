@@ -459,6 +459,8 @@ given, and the app answering the reader who touches it.
   position text and the current export options intact. Export text stays still
   while focused, then shows newer analysis when you leave the field. Copy
   confirmations track the displayed text or current share link.
+  Read-only PGN and link fields support Ctrl/Cmd+A to select and Ctrl/Cmd+C
+  to copy, including when the app's clipboard API is unavailable.
 - **Promotion choices**: Choose a full named piece or press Q/R/B/N, including underpromotions for either color. The picker adapts to enlarged text and short screens, keeps keyboard focus visible, and preserves browser shortcuts and composing keystrokes.
 - **PGN and FEN workflows**: Import/export annotated PGN, copy FEN/share links, and build custom FEN positions with editable pieces, side to move, castling rights, en passant targets, and move counters. Flip the setup board to work from either player's viewpoint; coordinates and keyboard movement follow the view while the position stays intact. File and rank labels identify setup squares. Editing a position preserves its en passant capture; changing the side or removing the required pawn clears it. The palette and board each use one Tab stop. Left/Right move through tools; all four arrows move between board squares. Enter/Space selects a tool or places/erases. Home/End jumps to the first/last tool or either end of a rank.
   **Import & Analyze** and **Load & Analyze** reopen the analysis panel at its
