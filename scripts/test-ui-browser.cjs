@@ -12249,6 +12249,124 @@ async function checkArchiveKeyboardFetch(browser) {
   }
 }
 
+async function checkArchivePreferences(browser) {
+  const key = 'webchess:archive-preferences:v1'
+  const pgn = '[Event "Archive preferences"]\n[White "Reader"]\n[Black "Opponent"]\n\n1. e4 e5 *'
+  for (const [width, scale, theme, seed, blocked] of [
+    [1280, 1, 'dark', 'malformed', false], [375, 1, 'light', 'empty', false],
+    [320, 2, 'dark', 'saved', false], [375, 2, 'light', 'empty', true],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height: 812 }, reducedMotion: 'reduce' })
+    const page = await context.newPage(), errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.addInitScript(fakeEngineScript())
+      await page.addInitScript(({ key, pgn, theme, seed, blocked }) => {
+        localStorage.setItem('webchess:analysis-settings:v1', JSON.stringify({ workspaceMode: 'play', autoAnalyze: false, theme }))
+        if (!sessionStorage.getItem('qa-archive-preferences-seeded')) {
+          sessionStorage.setItem('qa-archive-preferences-seeded', 'true')
+          if (seed === 'malformed') localStorage.setItem(key, JSON.stringify({ source: 'unknown', count: '7', usernames: { lichess: '../admin', chesscom: 42 } }))
+          if (seed === 'saved') localStorage.setItem(key, JSON.stringify({ source: 'chesscom', count: 8, usernames: { lichess: 'Lichess_Old', chesscom: 'Chess_Old' } }))
+        }
+        if (blocked) {
+          for (const method of ['getItem', 'setItem']) {
+            const native = Storage.prototype[method]
+            Storage.prototype[method] = function (name, ...args) {
+              if (name === key) throw new DOMException('Archive preference storage denied', 'SecurityError')
+              return native.call(this, name, ...args)
+            }
+          }
+        }
+        window.__archivePreferenceRequests = []
+        const previous = window.fetch
+        window.fetch = (input, init) => {
+          const url = new URL(typeof input === 'string' ? input : input.url, location.href)
+          const lichess = url.hostname === 'lichess.org' && url.pathname.startsWith('/api/games/user/')
+          if (lichess || url.hostname === 'api.chess.com') {
+            window.__archivePreferenceRequests.push(url.href)
+            if (lichess && url.pathname.endsWith('/Late_Reader')) return new Promise(resolve => {
+              // Deliberately ignore abort to exercise ownership of a late response.
+              window.__releaseArchivePreferences = () => resolve(new Response(pgn))
+            })
+            if (lichess) return Promise.resolve(new Response(url.pathname.endsWith('/Missing_Reader') ? '' : pgn))
+            if (url.pathname.endsWith('/archives')) return Promise.resolve(new Response(JSON.stringify({ archives: [
+              `https://api.chess.com/pub/player/${url.pathname.split('/')[3]}/games/2026/10`,
+            ] })))
+            if (url.pathname.endsWith('/pgn')) return Promise.resolve(new Response(pgn))
+            return Promise.resolve(new Response('{}', { status: 404 }))
+          }
+          return previous(input, init)
+        }
+      }, { key, pgn, theme, seed, blocked })
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      const dialog = page.locator('.pgn-dialog')
+      const open = async () => { await page.getByRole('button', { name: 'Open PGN and FEN dialog', exact: true }).click(); await dialog.waitFor() }
+      const close = async () => { await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' }) }
+      const user = dialog.locator('.archive-input'), count = dialog.getByRole('spinbutton', { name: 'Games', exact: true })
+      const choose = source => dialog.locator('.archive-source-row').getByRole('button', { name: source, exact: true }).click()
+      const requests = () => page.evaluate(() => window.__archivePreferenceRequests.length)
+      const stored = () => page.evaluate(key => { try { return localStorage.getItem(key) } catch { return 'blocked' } }, key)
+      const fields = () => dialog.evaluate(el => ({ source: el.querySelector('.archive-source-btn[aria-pressed="true"]').textContent.trim(), username: el.querySelector('.archive-input').value, count: el.querySelector('.archive-count input').value }))
+      const expectFields = async (source, username, games) => assert(JSON.stringify(await fields()) === JSON.stringify({ source, username, count: String(games) }), `remembered archive fields differ: ${JSON.stringify(await fields())}`)
+      const fetchFor = async (source, username, games, normalized = username) => {
+        await choose(source); await user.fill(username); await count.fill(String(games))
+        await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+        await dialog.getByText(`Fetched 1 game for ${normalized}.`, { exact: true }).waitFor()
+      }
+      const initialStore = await stored()
+      await open()
+      await expectFields(seed === 'saved' ? 'Chess.com' : 'Lichess', seed === 'saved' ? 'Chess_Old' : '', seed === 'saved' ? 8 : 10)
+      assert(await requests() === 0 && await stored() === initialStore, 'opening restored choices fetched games or persisted untouched defaults')
+      await choose('Lichess'); await user.fill('https://lichess.org/@/Lichess_One'); await count.fill('3')
+      await choose('Chess.com')
+      assert(await user.inputValue() === (seed === 'saved' ? 'Chess_Old' : ''), 'the new provider borrowed the other provider’s username')
+      await choose('Lichess')
+      assert(await user.inputValue() === 'https://lichess.org/@/Lichess_One', 'switching providers discarded an unsubmitted username draft')
+      await fetchFor('Lichess', 'https://lichess.org/@/Lichess_One', 3, 'Lichess_One')
+      await fetchFor('Chess.com', 'Chess_Two', 7)
+      const note = dialog.locator('.archive-preferences-note')
+      assert(await note.innerText() === (blocked ? 'These choices apply while this dialog is open.' : 'Fetch choices remembered on this device.'), 'archive preference feedback promises persistence when storage is blocked')
+      await note.scrollIntoViewIfNeeded()
+      const contrast = await page.evaluate(contrastProbe, '.archive-preferences-note')
+      assert(contrast.checked === 1 && contrast.failures.length === 0 && await note.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `archive preference note is unreadable: ${JSON.stringify(contrast)}`)
+      await page.screenshot({ path: `/tmp/web-chess-archive-preferences-${browser.browserType().name()}-${width}-${scale}x-${blocked ? 'blocked' : 'saved'}.png` })
+      const remembered = await stored()
+      if (!blocked) {
+        const preferences = JSON.parse(remembered)
+        assert(preferences.source === 'chesscom' && preferences.count === 7
+          && preferences.usernames.lichess === 'Lichess_One' && preferences.usernames.chesscom === 'Chess_Two',
+        'successful fetches did not retain both canonical usernames and the effective count')
+      }
+
+      await choose('Lichess'); await user.fill('Late_Reader')
+      await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+      await page.waitForFunction(() => typeof window.__releaseArchivePreferences === 'function')
+      await dialog.getByRole('button', { name: 'Cancel fetch', exact: true }).click()
+      const text = dialog.locator('textarea')
+      await text.fill('1. d4 {Keep this draft ♞} *')
+      await page.evaluate(() => window.__releaseArchivePreferences())
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      assert(await stored() === remembered && await text.inputValue() === '1. d4 {Keep this draft ♞} *', 'a canceled late fetch changed preferences or the newer PGN draft')
+      await user.fill('Missing_Reader'); await count.fill('5')
+      await dialog.getByRole('button', { name: 'Fetch', exact: true }).click()
+      await dialog.getByRole('alert').filter({ hasText: 'has no public games' }).waitFor()
+      assert(await stored() === remembered, 'an empty fetch replaced successful preferences')
+      const beforeReopen = await requests()
+      await close(); await open()
+      await expectFields(blocked ? 'Lichess' : 'Chess.com', blocked ? '' : 'Chess_Two', blocked ? 10 : 7)
+      assert(await requests() === beforeReopen, 'reopening the dialog fetched games without a request')
+      if (!blocked) { await choose('Lichess'); assert(await user.inputValue() === 'Lichess_One', 'the other provider’s successful username was lost on reopen') }
+      await close(); await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale * 100}%` }, scale)
+      await open()
+      await expectFields(blocked ? 'Lichess' : 'Chess.com', blocked ? '' : 'Chess_Two', blocked ? 10 : 7)
+      assert(await requests() === 0 && errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `archive preference reload fetched automatically, overflowed or raised errors: ${errors.join('; ')}`)
+      console.log(`  archive preferences (${width}px, ${scale}x, ${theme}, ${blocked ? 'blocked storage' : seed}): separate provider drafts; two successful canonical handles and count; truthful storage feedback; canceled late/empty fetches preserve choices and PGN; reopen/reload restore without requests`)
+    } finally { await context.close() }
+  }
+}
+
 async function checkAnArchiveFetchBringsBackTheGames(browser) {
   const game = (event, white, black) =>
     `[Event "${event}"]\n[White "${white}"]\n[Black "${black}"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 1-0`
@@ -23286,6 +23404,7 @@ async function main() {
       'tablebase': checkTheTablebaseAnswersForThisPosition,
       'archive-fetch': checkAnArchiveFetchBringsBackTheGames,
       'archive-keyboard': checkArchiveKeyboardFetch,
+      'archive-preferences': checkArchivePreferences,
       'historical': checkTheHistoricalLibraryLoadsAGame,
       'lookup-failures': checkAFailedLookupSaysSoPlainly,
       'graph-guide': checkGraphEstimateGuide,
@@ -24267,6 +24386,7 @@ async function main() {
     await checkADeadFetchButtonSaysWhy(browser)
     await checkAnArchiveFetchBringsBackTheGames(browser)
     await checkArchiveKeyboardFetch(browser)
+    await checkArchivePreferences(browser)
     await checkTheHistoricalLibraryLoadsAGame(browser)
     await checkAFailedLookupSaysSoPlainly(browser)
     await checkTheLibrarySurvivesABackup(browser)

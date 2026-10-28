@@ -445,6 +445,8 @@ given, and the app answering the reader who touches it.
   themselves. A game in a variant this board does not play — Chess960 is the
   common one in a chess.com archive — is named and counted rather than reported
   as damaged.
+  Successful fetches remember the source, game count and a separate username
+  for each site on this device. Reopening restores the fields for the next fetch.
   A slow fetch can be canceled in place. Pasting text, choosing another file,
   or changing the archive request keeps late replies from replacing your newer draft.
   Press Enter in either the username or Games field to fetch. Repeated or held

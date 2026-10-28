@@ -44,6 +44,7 @@ import {
     type ArchiveSource,
 } from '../engine/gameArchives'
 import { fetchArchiveGames } from '../engine/archiveFetch'
+import { ARCHIVE_PREFERENCES_STORAGE_KEY, archivePreferencesAfterFetch, readArchivePreferences } from '../engine/archivePreferences'
 import { IconDownload, IconClipboard, IconUpload, IconFlip, IconClose } from './icons'
 import { fenTextForShareLink } from './pgnDialogHelpers'
 import { isCompositionKey } from './shortcutKeys'
@@ -155,9 +156,13 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
     const [selectedSetupPiece, setSelectedSetupPiece] = useState<SetupPiece | null>('P')
     const [setupFlipped, setSetupFlipped] = useState(false)
     const [shareLinkFallback, setShareLinkFallback] = useState('')
-    const [archiveSource, setArchiveSource] = useState<ArchiveSource>('lichess')
-    const [archiveUsername, setArchiveUsername] = useState('')
-    const [archiveCount, setArchiveCount] = useState(String(DEFAULT_ARCHIVE_GAMES))
+    const [archiveDefaults] = useState(readArchivePreferences)
+    const archivePreferencesRef = useRef(archiveDefaults)
+    const [archiveSource, setArchiveSource] = useState<ArchiveSource>(archiveDefaults.source)
+    const [archiveUsernames, setArchiveUsernames] = useState(archiveDefaults.usernames)
+    const archiveUsername = archiveUsernames[archiveSource] ?? ''
+    const [archiveCount, setArchiveCount] = useState(String(archiveDefaults.count))
+    const [archivePreferencesStored, setArchivePreferencesStored] = useState<boolean | null>(null)
     const [archiveBusy, setArchiveBusy] = useState(false)
     const [readingFile, setReadingFile] = useState(false)
     const [archiveUsernameBlurred, setArchiveUsernameBlurred] = useState(false)
@@ -197,6 +202,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
         setCopiedText(null)
         setExportTextSnapshot(null)
         setShareLinkFallback('')
+        setArchivePreferencesStored(null)
     }, [])
 
     // A newer paste, file, or archive choice owns the import box. Cancel the
@@ -280,6 +286,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
             }
             setImportText(text)
             setImportFileName(`${username} · ${archiveSourceInfo.label}`)
+            const preferences = archivePreferencesAfterFetch(archivePreferencesRef.current, archiveSource, username, archiveGameCount)
+            archivePreferencesRef.current = preferences
+            setArchivePreferencesStored(writeStorage(ARCHIVE_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences)))
             setStatus(`Fetched ${games.length} ${games.length === 1 ? 'game' : 'games'} for ${username}.`)
         } catch (fetchError) {
             if (controller.signal.aborted) return
@@ -777,6 +786,7 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                                 cancelPendingImport()
                                                 resetFeedback()
                                                 setArchiveSource(source.id)
+                                                setArchiveUsernameBlurred(false)
                                             }}
                                         >
                                             {source.label}
@@ -805,7 +815,8 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         onChange={event => {
                                             cancelPendingImport()
                                             resetFeedback()
-                                            setArchiveUsername(event.target.value)
+                                            const value = event.target.value
+                                            setArchiveUsernames(previous => ({ ...previous, [archiveSource]: value }))
                                             setArchiveUsernameBlurred(false)
                                         }}
                                         onBlur={() => setArchiveUsernameBlurred(true)}
@@ -855,6 +866,9 @@ export function PgnDialog({ open, initialTab = 'import', onClose, onImport, onLo
                                         {archiveBusy ? 'Fetching games…' : 'Public games, no sign-in. They land in the box below, newest first.'}
                                     </p>
                                 )}
+                                {archivePreferencesStored !== null && <p className="archive-hint archive-preferences-note">
+                                    {archivePreferencesStored ? 'Fetch choices remembered on this device.' : 'These choices apply while this dialog is open.'}
+                                </p>}
                             </div>
                             <label className="dialog-label archive-paste-label" htmlFor={importTextId}>Or paste Portable Game Notation</label>
                             <div className="dialog-quick-actions">

@@ -1225,6 +1225,11 @@
     color: var(--text-tertiary);
 }
 
+.archive-preferences-note {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
 .archive-paste-label {
     margin-top: 0.2rem;
 }
