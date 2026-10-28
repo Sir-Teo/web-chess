@@ -1,0 +1,134 @@
+{
+  "browser": "firefox",
+  "checks": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "openers": [
+        {
+          "label": "Start new game",
+          "popup": "dialog",
+          "shortcut": "N",
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Open PGN and FEN dialog",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Open saved games library",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Open the Commands palette",
+          "popup": "dialog",
+          "shortcut": "Meta+K Control+K",
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Human vs Human",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Human vs AI",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "AI vs AI",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "openers": [
+        {
+          "label": "Start new game",
+          "popup": "dialog",
+          "shortcut": "N",
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Open PGN and FEN dialog",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Open saved games library",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Open the Commands palette",
+          "popup": "dialog",
+          "shortcut": "Meta+K Control+K",
+          "visible": true,
+          "opensWithEnter": true,
+          "focusEntersDialog": true,
+          "escapeRestoresOpener": true
+        },
+        {
+          "label": "Human vs Human",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": false
+        },
+        {
+          "label": "Human vs AI",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": false
+        },
+        {
+          "label": "AI vs AI",
+          "popup": "dialog",
+          "shortcut": null,
+          "visible": false
+        }
+      ]
+    }
+  ]
+}

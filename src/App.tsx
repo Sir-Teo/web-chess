@@ -7622,16 +7622,16 @@ function App() {
               aria-hidden={settingsOpen ? true : undefined}
               inert={settingsOpen ? true : undefined}
             >
-              <button type="button" onClick={openNewGameDialog} aria-label="Start new game" title="New game">
+              <button type="button" onClick={openNewGameDialog} aria-label="Start new game" aria-haspopup="dialog" aria-keyshortcuts="N" title="New game">
                 <span className="btn-icon"><IconRefresh /></span> <span className="btn-label">New game</span>
               </button>
               <button type="button" onClick={flipBoard} aria-label="Flip board" aria-keyshortcuts="F" title="Flip board">
                 <span className="btn-icon"><IconFlip /></span> <span className="btn-label">Flip</span>
               </button>
-              <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" title="PGN and FEN">
+              <button type="button" onClick={openPgnDialog} aria-label="Open PGN and FEN dialog" aria-haspopup="dialog" title="PGN and FEN">
                 <span className="btn-icon"><IconDownload /></span> <span className="btn-label">PGN</span>
               </button>
-              <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" title="Library">
+              <button type="button" onClick={openLibraryDialog} aria-label="Open saved games library" aria-haspopup="dialog" title="Library">
                 <span className="btn-icon"><IconClipboard /></span> <span className="btn-label">Library</span>
               </button>
               {/* The palette was keyboard-only until now, which on a phone means
@@ -7647,6 +7647,7 @@ function App() {
                    visible control on eight surfaces -- this was the only one,
                    and the Library button beside it already gets it right. */
                 aria-label="Open the Commands palette"
+                aria-haspopup="dialog"
                 aria-keyshortcuts={COMMAND_PALETTE_ARIA_KEYSHORTCUTS}
                 title={`Commands (${commandPaletteShortcutLabel()})`}
                 data-testid="command-palette-btn"
@@ -7694,6 +7695,7 @@ function App() {
                     type="button"
                     className={`gc-pill ${gameMode === id ? 'gc-pill-active' : ''}`}
                     aria-pressed={gameMode === id}
+                    aria-haspopup="dialog"
                     title={title}
                     onClick={event => openNewGameDialogForMode(id, event)}
                   >
