@@ -5,7 +5,7 @@ import type { PieceDropHandlerArgs } from 'react-chessboard'
 import { BoardCanvas } from './components/BoardCanvas'
 import { EngineDetails } from './components/EngineDetails'
 import { EngineConsoleOutput } from './components/EngineConsoleOutput'
-import { keepFocusedControlVisible } from './components/keepFocusedControlVisible'
+import { keepFocusedControlVisible, revealInViewport } from './components/keepFocusedControlVisible'
 import {
   buildWdlSeries,
   buildWinrateSeries,
@@ -896,6 +896,7 @@ function App() {
   const [sampleLoadError, setSampleLoadError] = useState<string | null>(null)
   const [isImportingGame, setIsImportingGame] = useState(false)
   const [boardRevealTick, setBoardRevealTick] = useState(0)
+  const boardRevealTargetRef = useRef<'stage' | 'board'>('stage')
   const [analysisPanelRevealTick, setAnalysisPanelRevealTick] = useState(0)
   const handledBoardRevealRef = useRef(0)
   const handledAnalysisRevealRef = useRef(0)
@@ -5434,7 +5435,8 @@ function App() {
     setSampleLoadingId(null)
   }, [abortSampleFetch])
 
-  const requestBoardReveal = useCallback(() => {
+  const requestBoardReveal = useCallback((target: 'stage' | 'board' = 'stage') => {
+    boardRevealTargetRef.current = target
     setBoardRevealTick(tick => tick + 1)
   }, [])
 
@@ -5448,7 +5450,7 @@ function App() {
     goFirst()
     setAutoplay(true)
     boardStageRef.current?.focus({ preventScroll: true })
-    requestBoardReveal()
+    requestBoardReveal('board')
   }, [cancelPendingAiMove, goFirst, pause, requestBoardReveal])
 
   const revealDrillMove = useCallback(() => {
@@ -5491,6 +5493,8 @@ function App() {
   useEffect(() => {
     if (boardRevealTick === 0 || backgroundUiHidden || handledBoardRevealRef.current === boardRevealTick) return
     handledBoardRevealRef.current = boardRevealTick
+    const target = boardRevealTargetRef.current
+    boardRevealTargetRef.current = 'stage'
     if (scrollWorkspaceChrome) {
       const stage = boardStageRef.current
       stage?.focus({ preventScroll: true })
@@ -5508,6 +5512,10 @@ function App() {
         top: boardStage.offsetTop,
         behavior: 'auto',
       })
+      if (target === 'board' && document.activeElement === boardStage) {
+        const surface = boardStage.querySelector<HTMLElement>('.board-surface')
+        if (surface) revealInViewport(surface)
+      }
     }
 
     // Focus belongs to the explicit request. Later layout retries only scroll.

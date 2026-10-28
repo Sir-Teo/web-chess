@@ -12545,6 +12545,15 @@ async function checkFinishedGameReplay(browser) {
       await replay.focus()
       await replay.press('Enter')
       await waitForBoardPiece(page, 'f2', 'White pawn')
+      // These viewports have room for the whole board, including at 200% text.
+      await page.waitForFunction(() => {
+        const board = document.querySelector('.board-surface'), r = board.getBoundingClientRect()
+        const frame = document.querySelector('.main-container').getBoundingClientRect()
+        const top = Math.max(0, frame.top), bottom = Math.min(innerHeight, frame.bottom)
+        return r.height <= bottom - top + 1 && r.top >= top - 1 && r.bottom <= bottom + 1
+          && [r.left + 2, r.right - 2].every(x => [r.top + 2, r.bottom - 2]
+            .every(y => board.contains(document.elementFromPoint(x, y))))
+      }, null, { timeout: 2500 })
       const stop = page.getByRole('button', { name: 'Stop autoplay', exact: true })
       await stop.waitFor()
       assert(await page.locator('#chessboard-stage').evaluate(el => el === document.activeElement), 'starting a replay lost board focus')
@@ -12575,7 +12584,7 @@ async function checkFinishedGameReplay(browser) {
       assert(JSON.stringify(await page.locator('.clock-face').allTextContents()) === JSON.stringify(clockBefore), 'replay charged time to the completed game')
       assert((await page.locator('[data-mode-group="game"] .gc-pill-active').innerText()).trim() === mode, 'replay changed the opponent mode')
       assert(errors.length === 0 && !await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `replay errors or horizontal overflow: ${errors.join('; ')}`)
-      console.log(`  finished replay (${width}×${height}, ${scale}x, ${mode}): starts at root with board focus and visible Stop, held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time`)
+      console.log(`  finished replay (${width}×${height}, ${scale}x, ${mode}): starts at root with the whole board visible, board focus and visible Stop; held Enter stops/starts once, finishes, preserves all moves/mode and charges no clock time`)
     } finally { await context.close() }
   }
 }
