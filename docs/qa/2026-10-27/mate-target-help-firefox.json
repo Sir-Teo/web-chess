@@ -1,0 +1,32 @@
+{
+  "browser": "firefox",
+  "results": [
+    {
+      "width": 1280,
+      "scale": 1,
+      "theme": "dark",
+      "label": "Mate target (moves)",
+      "value": "3",
+      "help": "Search for mate within this many moves. If none is found, the search can keep running; press Stop to end it.",
+      "command": "go mate 3"
+    },
+    {
+      "width": 375,
+      "scale": 2,
+      "theme": "light",
+      "label": "Mate target (moves)",
+      "value": "3",
+      "help": "Search for mate within this many moves. If none is found, the search can keep running; press Stop to end it.",
+      "command": "go mate 3"
+    },
+    {
+      "width": 320,
+      "scale": 2,
+      "theme": "dark",
+      "label": "Mate target (moves)",
+      "value": "3",
+      "help": "Search for mate within this many moves. If none is found, the search can keep running; press Stop to end it.",
+      "command": "go mate 3"
+    }
+  ]
+}

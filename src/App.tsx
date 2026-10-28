@@ -7975,21 +7975,28 @@ function App() {
                         </label>
                       )}
                       {analyzeMode === 'mate' && (
-                        <label className="engine-option-row">
-                          <span>Mate target (plies)</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            step={1}
-                            value={mateTarget}
-                            onChange={e => {
-                              setActivePreset(null)
-                              setMateTarget(parseIntegerInputValue(e.target.value))
-                            }}
-                            onBlur={() => setMateTarget(value => normalizeRequiredIntegerInput(value, MATE_TARGET_BOUNDS))}
-                          />
-                        </label>
+                        <>
+                          <label className="engine-option-row">
+                            <span>Mate target (moves)</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={30}
+                              step={1}
+                              value={mateTarget}
+                              aria-describedby="mate-target-help"
+                              onChange={e => {
+                                setActivePreset(null)
+                                setMateTarget(parseIntegerInputValue(e.target.value))
+                              }}
+                              onBlur={() => setMateTarget(value => normalizeRequiredIntegerInput(value, MATE_TARGET_BOUNDS))}
+                            />
+                          </label>
+                          <p id="mate-target-help" className="panel-copy small mate-target-help">
+                            Search for mate within this many moves. If none is found, the search can
+                            keep running; press Stop to end it.
+                          </p>
+                        </>
                       )}
                       <label className="control">
                         <span>MultiPV</span>
